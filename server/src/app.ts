@@ -22,7 +22,10 @@ export function createApp(db: Db) {
 
   app.get("/health", async (_req, res) => {
     try { await db.all("SELECT 1 AS ok"); res.json({ ok: true, db: "up" }); }
-    catch { res.status(503).json({ ok: false, db: "down" }); }
+    catch (e) {
+      console.error("[health] database check failed:", e);
+      res.status(503).json({ ok: false, db: "down", error: (e as { code?: string })?.code ?? "unknown" });
+    }
   });
 
   app.use(async (req: Request, res: Response, next: NextFunction) => {
