@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { LuArrowLeft, LuCircleCheck, LuClock, LuLock, LuPrinter, LuShieldCheck } from "react-icons/lu";
 import { useSession } from "@/app/session";
-import { actions, useCashMovements, useShifts } from "@/services/api";
+import { actions, useShiftSummary } from "@/services/api";
 import { Avatar, Badge, Button, Callout, Card, CardHeader, Input, Textarea, useToast } from "@/components/ui";
 import { cn, formatMoney, formatTime, methodLabel } from "@/lib/format";
 import type { PaymentMethod } from "@/types";
@@ -10,19 +10,18 @@ import { ApprovalModal } from "./PosModals";
 
 const NOTES = [200, 100, 50, 20, 10, 5, 2, 1];
 const COINS = [2, 1, 0.5, 0.2, 0.1];
-const VARIANCE_THRESHOLD = 10; // LOGIC: from business settings
 
 /** Shell used by the shift screens on the terminal. */
 function TerminalShell({ title, children, back }: { title: string; children: ReactNode; back?: () => void }) {
   const { posUser, terminal, branch } = useSession();
   return (
     <div className="min-h-full bg-ink-100">
-      <header className="flex h-14 items-center gap-3 bg-brand-900 px-4 text-white">
-        {back && <button onClick={back} aria-label="Back" className="rounded-lg p-1.5 hover:bg-white/10"><LuArrowLeft className="size-5" /></button>}
+      <header className="flex h-14 items-center gap-3 border-b border-ink-200 bg-white px-4 text-ink-900">
+        {back && <button onClick={back} aria-label="Back" className="rounded-lg p-1.5 hover:bg-ink-100"><LuArrowLeft className="size-5" /></button>}
         <h1 className="font-semibold">{title}</h1>
-        <span className="text-sm text-brand-300">· {terminal?.name} · {branch.name}</span>
+        <span className="text-sm text-ink-500">· {terminal?.name} · {branch.name}</span>
         {posUser && (
-          <span className="ml-auto flex items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-3 text-sm">
+          <span className="ml-auto flex items-center gap-2 rounded-full bg-ink-100 py-1 pl-1 pr-3 text-sm">
             <Avatar name={posUser.fullName} color={posUser.avatarColor} size="sm" /> {posUser.displayName}
           </span>
         )}
@@ -35,13 +34,27 @@ function TerminalShell({ title, children, back }: { title: string; children: Rea
 /* ═════════════ Open shift ═════════════ */
 export function OpenShiftPage() {
   const navigate = useNavigate();
-  const { posUser, setShiftOpen, setPosUser } = useSession();
+  const toast = useToast();
+  const { posUser, setShiftId, setPosUser, terminal, shiftId } = useSession();
   const [float, setFloat] = useState("300");
   const [busy, setBusy] = useState(false);
-  const lastClosed = useShifts().data.find((s) => s.status === "closed" && s.terminalId === "t1");
 
-  useEffect(() => { if (!posUser) navigate("/pos/lock", { replace: true }); }, [posUser, navigate]);
+  useEffect(() => { if (shiftId) navigate("/pos", { replace: true }); }, [shiftId, navigate]);
   if (!posUser) return null;
+
+  const open = async () => {
+    if (!terminal) return;
+    setBusy(true);
+    try {
+      const id = await actions.openShift(terminal.id, Number(float) || 0);
+      setShiftId(id);
+      navigate("/pos");
+    } catch (e) {
+      toast({ tone: "error", title: "Couldn't open shift", body: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <TerminalShell title="Open shift">
@@ -67,19 +80,16 @@ export function OpenShiftPage() {
                 <button key={v} onClick={() => setFloat(String(v))} className={cn("num flex-1 rounded-lg py-2 text-sm font-medium ring-1", float === String(v) ? "bg-brand-50 text-brand-800 ring-brand-400" : "ring-ink-200 hover:bg-ink-50")}>GH₵ {v}</button>
               ))}
             </div>
-            {lastClosed && (
-              <p className="text-xs text-ink-500">Last shift on this till closed at {formatTime(lastClosed.closedAt!)} with {formatMoney(lastClosed.countedCash ?? 0)} counted.</p>
-            )}
             <Button
               size="xl"
               block
               loading={busy}
               disabled={float === ""}
-              onClick={async () => { setBusy(true); await actions.openShift(Number(float)); setShiftOpen(true); navigate("/pos"); }}
+              onClick={open}
             >
               Open shift & start selling
             </Button>
-            <Button variant="ghost" block icon={<LuLock className="size-4" />} onClick={() => { setPosUser(null); navigate("/pos/lock"); }}>Cancel and lock</Button>
+            <Button variant="ghost" block icon={<LuLock className="size-4" />} onClick={async () => { if (terminal) await actions.lockTerminal(); setPosUser(null); navigate("/pos/lock"); }}>Cancel and lock</Button>
           </div>
         </Card>
       </div>
@@ -91,30 +101,40 @@ export function OpenShiftPage() {
 export function CloseShiftPage() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { posUser, setShiftOpen, setPosUser } = useSession();
-  const shifts = useShifts().data;
-  const shift = shifts.find((s) => s.status === "open" && s.employeeId === (posUser?.id ?? "e3")) ?? shifts[0]; // LOGIC: current open shift for this terminal
-  const moves = useCashMovements().data.filter((m) => m.shiftId === shift?.id);
+  const { posUser, setShiftOpen, setPosUser, shiftId, terminal, settings } = useSession();
+  const q = useShiftSummary(shiftId);
+  const shift = q.data?.shift;
+  const moves = q.data?.movements ?? [];
+  const threshold = Number(settings.variance_threshold ?? 10);
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [note, setNote] = useState("");
   const [approval, setApproval] = useState(false);
+  const [approvalId, setApprovalId] = useState<string | null>(null);
   const [approvedBy, setApprovedBy] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const counted = useMemo(() => [...NOTES, ...COINS].reduce((s, d) => s + d * (Number(counts[d]) || 0), 0), [counts]);
+  const counted = useMemo(() => +[...NOTES, ...COINS].reduce((s, d) => s + d * (Number(counts[d]) || 0), 0).toFixed(2), [counts]);
+  const touched = Object.values(counts).some((v) => v !== "");
+  if (!posUser) return null;
+  if (q.loading) return <TerminalShell title="Close shift" back={() => navigate("/pos")}><p className="text-sm text-ink-500">Loading shift…</p></TerminalShell>;
   if (!shift) return <TerminalShell title="Close shift" back={() => navigate("/pos")}><Callout tone="info" title="No open shift on this till">Open a shift from the lock screen to start selling.</Callout></TerminalShell>;
   const variance = +(counted - shift.expectedCash).toFixed(2);
-  const touched = Object.values(counts).some((v) => v !== "");
-  const needsApproval = touched && Math.abs(variance) > VARIANCE_THRESHOLD;
+  const needsApproval = touched && Math.abs(variance) > threshold;
 
-  const close = async () => {
+  const close = async (apprId?: string | null) => {
+    if (!shiftId) return;
     setBusy(true);
-    await actions.closeShift({ counted: Object.fromEntries(Object.entries(counts).map(([k, v]) => [k, Number(v) || 0])), total: counted, note, approverId: approvedBy ?? undefined }); // LOGIC
-    setBusy(false);
-    setDone(true);
-    setShiftOpen(false);
-    toast({ tone: "success", title: "Shift closed", body: "Z report saved." });
+    try {
+      await actions.closeShift(shiftId, Object.fromEntries(Object.entries(counts).map(([k, v]) => [k, Number(v) || 0])), note, apprId ?? approvalId);
+      setDone(true);
+      setShiftOpen(false);
+      toast({ tone: "success", title: "Shift closed", body: "Z report saved." });
+    } catch (e) {
+      toast({ tone: "error", title: "Couldn't close shift", body: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (done) {
@@ -126,7 +146,7 @@ export function CloseShiftPage() {
           <p className="mt-1 text-sm text-ink-500">Counted {formatMoney(counted)} · Variance {variance >= 0 ? "+" : ""}{formatMoney(variance)}</p>
           <div className="mt-6 flex flex-col gap-2">
             <Button size="lg" icon={<LuPrinter className="size-5" />} onClick={() => window.print()}>Print Z report</Button>
-            <Button size="lg" variant="secondary" icon={<LuLock className="size-5" />} onClick={() => { setPosUser(null); navigate("/pos/lock"); }}>Lock terminal</Button>
+            <Button size="lg" variant="secondary" icon={<LuLock className="size-5" />} onClick={async () => { if (terminal) await actions.lockTerminal(); setPosUser(null); navigate("/pos/lock"); }}>Lock terminal</Button>
           </div>
         </Card>
       </TerminalShell>
@@ -144,13 +164,14 @@ export function CloseShiftPage() {
 
         <div className="space-y-4">
           <Card>
-            <CardHeader title="Shift summary" description={`${posUser?.fullName ?? ""} · opened ${formatTime(shift.openedAt)}`} />
+            <CardHeader title="Shift summary" description={`${posUser.fullName} · opened ${formatTime(shift.openedAt)}`} />
             <dl className="space-y-2 text-sm">
               <Row l="Sales" r={`${shift.salesCount} · ${formatMoney(shift.salesTotal)}`} />
               {(Object.keys(shift.byMethod) as PaymentMethod[]).map((m) => <Row key={m} l={methodLabel[m]!} r={formatMoney(shift.byMethod[m])} muted />)}
               <div className="my-2 border-t border-ink-100" />
               <Row l="Opening float" r={formatMoney(shift.openingFloat)} muted />
-              {moves.map((m) => <Row key={m.id} l={`${m.type === "paid_in" ? "Cash in" : m.type === "paid_out" ? "Cash out" : "Cash drop"} · ${m.reason}`} r={`${m.type === "paid_in" ? "+" : "−"}${formatMoney(m.amount)}`} muted />)}
+              {moves.filter((m) => m.type !== "no_sale").map((m) => <Row key={m.id} l={`${m.type === "paid_in" ? "Cash in" : m.type === "paid_out" ? "Cash out" : "Cash drop"} · ${m.reason}`} r={`${m.type === "paid_in" ? "+" : "−"}${formatMoney(m.amount)}`} muted />)}
+              {!!q.data?.refundsCash && <Row l="Cash refunds" r={`−${formatMoney(q.data.refundsCash)}`} muted />}
               <Row l="Expected cash" r={formatMoney(shift.expectedCash)} strong />
               <Row l="Counted cash" r={formatMoney(counted)} strong />
             </dl>
@@ -170,7 +191,7 @@ export function CloseShiftPage() {
                 {approvedBy ? (
                   <Badge tone="success"><LuShieldCheck className="size-3.5" /> Approved by {approvedBy}</Badge>
                 ) : (
-                  <Callout tone="danger" icon={<LuShieldCheck className="size-4" />}>Variance is more than {formatMoney(VARIANCE_THRESHOLD)}. A manager must approve.</Callout>
+                  <Callout tone="danger" icon={<LuShieldCheck className="size-4" />}>Variance is more than {formatMoney(threshold)}. A manager must approve.</Callout>
                 )}
               </div>
             )}
@@ -180,7 +201,7 @@ export function CloseShiftPage() {
               className="mt-4"
               loading={busy}
               disabled={!touched || (needsApproval && note.trim().length < 3)}
-              onClick={() => (needsApproval && !approvedBy ? setApproval(true) : close())}
+              onClick={() => (needsApproval && !approvedBy ? setApproval(true) : void close())}
             >
               {needsApproval && !approvedBy ? "Get approval & close" : "Close shift"}
             </Button>
@@ -189,9 +210,9 @@ export function CloseShiftPage() {
       </div>
 
       <ApprovalModal
-        request={approval ? { title: "Cash variance on shift close", detail: `${variance > 0 ? "Over" : "Short"} by ${formatMoney(Math.abs(variance))}. Note: ${note}`, amount: variance, permission: "pos.approve" } : null}
+        request={approval ? { action: "shift_variance", title: "Cash variance on shift close", detail: `${variance > 0 ? "Over" : "Short"} by ${formatMoney(Math.abs(variance))}. Note: ${note}`, amount: Math.abs(variance), permission: "pos.approve" } : null}
         onClose={() => setApproval(false)}
-        onApproved={(a) => { setApprovedBy(a.fullName); setApproval(false); }}
+        onApproved={(a, id) => { setApprovedBy(a.fullName); setApprovalId(id); setApproval(false); void close(id); }}
       />
     </TerminalShell>
   );

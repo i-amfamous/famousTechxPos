@@ -1,5 +1,6 @@
-import { useState, type FormEvent, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useSession } from "@/app/session";
 import { LuArrowLeft, LuCheck, LuEye, LuEyeOff, LuMail, LuMonitorSmartphone } from "react-icons/lu";
 import { actions } from "@/services/api";
 import { Button, Callout, Card, Checkbox, Input, Select } from "@/components/ui";
@@ -9,19 +10,19 @@ import { cn } from "@/lib/format";
 function AuthShell({ children, wide }: { children: ReactNode; wide?: boolean }) {
   return (
     <div className="flex min-h-full">
-      <div className="relative hidden w-[44%] flex-col justify-between overflow-hidden bg-brand-900 p-12 text-white lg:flex">
-        <div className="flex items-center gap-3"><Logo className="size-11 text-base" /><span className="text-lg font-bold tracking-wide">FAMOUS TECHX</span></div>
+      <div className="relative hidden w-[44%] flex-col justify-between overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-violet-800 p-12 text-white lg:flex">
+        <div className="flex items-center gap-3"><Logo className="size-11 text-base ring-2 ring-white/30" /><span className="text-lg font-bold tracking-wide">FAMOUS TECHX</span></div>
         <div>
           <h2 className="text-4xl font-semibold leading-tight">Sell faster.<br />Know every cedi.<br />Trust your team.</h2>
-          <p className="mt-4 max-w-sm text-brand-200">Sales, stock, staff and shifts for every branch — in one place.</p>
+          <p className="mt-4 max-w-sm text-brand-100">Sales, stock, staff and shifts for every branch — in one place.</p>
         </div>
-        <p className="text-sm text-brand-400">© Famous TechX</p>
-        <div className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-brand-700/40" />
-        <div className="pointer-events-none absolute -bottom-32 right-10 size-72 rounded-full bg-amber-400/10" />
+        <p className="text-sm text-brand-200">© Famous TechX</p>
+        <div className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-white/10" />
+        <div className="pointer-events-none absolute -bottom-32 right-10 size-72 rounded-full bg-violet-400/20" />
       </div>
       <div className="flex flex-1 items-center justify-center p-6">
         <div className={cn("w-full", wide ? "max-w-2xl" : "max-w-sm")}>
-          <div className="mb-8 flex items-center gap-3 lg:hidden"><Logo /><span className="font-bold tracking-wide text-brand-900">FAMOUS TECHX</span></div>
+          <div className="mb-8 flex items-center gap-3 lg:hidden"><Logo /><span className="font-bold tracking-wide text-ink-900">FAMOUS TECHX</span></div>
           {children}
         </div>
       </div>
@@ -44,17 +45,27 @@ function PasswordInput({ label, value, onChange, hint, error, autoComplete }: { 
 /* ═════════════ Login ═════════════ */
 export function LoginPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const { refresh, signedIn, passwordSession, signOut, demo } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const next = params.get("next") || "/dashboard";
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    try { await actions.signIn(email, password); navigate("/dashboard"); } // LOGIC
-    catch { setError("Email/phone or password is incorrect."); }
-    finally { setBusy(false); }
+    try {
+      if (!demo && signedIn && !passwordSession) await signOut(); // replace a till PIN session
+      await actions.signIn(email, password);
+      await refresh();
+      navigate(next, { replace: true });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <AuthShell>
@@ -62,7 +73,7 @@ export function LoginPage() {
       <p className="mt-1 text-sm text-ink-500">Back office for owners, managers and staff.</p>
       <form className="mt-8 space-y-4" onSubmit={submit}>
         {error && <Callout tone="danger">{error}</Callout>}
-        <Input label="Email or phone" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" autoFocus />
+        <Input label="Email or phone" hint="Staff without email use their phone number" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" autoFocus />
         <PasswordInput label="Password" value={password} onChange={setPassword} autoComplete="current-password" />
         <div className="flex items-center justify-between">
           <Checkbox label="Keep me signed in" defaultChecked />
@@ -99,7 +110,7 @@ export function ForgotPasswordPage() {
         <>
           <h1 className="text-2xl font-semibold text-ink-900">Reset your password</h1>
           <p className="mt-1 text-sm text-ink-500">We'll email you a reset link.</p>
-          <form className="mt-8 space-y-4" onSubmit={async (e) => { e.preventDefault(); setBusy(true); await actions.requestPasswordReset(email); setBusy(false); setSent(true); }}>
+          <form className="mt-8 space-y-4" onSubmit={async (e) => { e.preventDefault(); setBusy(true); try { await actions.requestPasswordReset(email); setSent(true); } catch { setSent(true); } finally { setBusy(false); } }}>
             <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
             <Button type="submit" size="lg" block loading={busy}>Send reset link</Button>
           </form>
@@ -112,21 +123,45 @@ export function ForgotPasswordPage() {
 /* ═════════════ Accept invite / first sign-in ═════════════ */
 export function AcceptInvitePage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const linkToken = params.get("token");
+  const isReset = params.get("type") === "recovery";
+  const { authEmail, signedIn, ready, refresh, user, business, mustChangePassword, demo } = useSession();
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const checks = [
     { ok: pw.length >= 8, label: "At least 8 characters" },
     { ok: /[A-Z]/.test(pw) && /[a-z]/.test(pw), label: "Upper and lower case letters" },
     { ok: /\d/.test(pw), label: "At least one number" },
   ];
   const strong = checks.every((c) => c.ok);
+  // Without a link token the page is only for someone signed in with a temporary password.
+  if (!demo && ready && !signedIn && !linkToken)
+    return (
+      <AuthShell>
+        <h1 className="text-2xl font-semibold text-ink-900">This link has expired</h1>
+        <p className="mt-2 text-sm text-ink-600">Invite and reset links work once and expire. Ask your manager to resend the invite, or request a new reset link.</p>
+        <div className="mt-6 flex gap-2"><Button variant="secondary" onClick={() => navigate("/forgot-password")}>Reset password</Button><Button onClick={() => navigate("/login")}>Sign in</Button></div>
+      </AuthShell>
+    );
   return (
     <AuthShell>
-      <h1 className="text-2xl font-semibold text-ink-900">Welcome to Famous TechX, Akosua</h1>
-      <p className="mt-1 text-sm text-ink-500">Kwame Asante added you as a <span className="font-medium text-ink-700">Cashier</span> at Accra – Osu. Create your password to finish.</p>
-      <form className="mt-8 space-y-4" onSubmit={async (e) => { e.preventDefault(); setBusy(true); await actions.acceptInvite("token", pw); navigate("/dashboard"); }}>
-        <Input label="Email" value="akosua.f@gmail.com" disabled />
+      <h1 className="text-2xl font-semibold text-ink-900">{mustChangePassword || isReset ? "Choose a new password" : `Welcome${user.displayName ? `, ${user.displayName}` : ""}`}</h1>
+      <p className="mt-1 text-sm text-ink-500">
+        {mustChangePassword ? "You signed in with a temporary password. Set your own to continue."
+          : isReset ? "Pick a password you haven't used here before."
+          : `Create your password to finish setting up your account${business ? ` at ${business.name}` : ""}.`}
+      </p>
+      <form className="mt-8 space-y-4" onSubmit={async (e) => {
+        e.preventDefault(); setBusy(true); setError(null);
+        try { await actions.setPassword(pw, linkToken); await refresh(); navigate("/dashboard", { replace: true }); }
+        catch (er) { setError((er as Error).message); }
+        finally { setBusy(false); }
+      }}>
+        {error && <Callout tone="danger">{error}</Callout>}
+        {signedIn && <Input label="Account" value={authEmail ?? user.phone} disabled />}
         <PasswordInput label="New password" value={pw} onChange={setPw} autoComplete="new-password" />
         <ul className="space-y-1">
           {checks.map((c) => (
@@ -136,7 +171,7 @@ export function AcceptInvitePage() {
           ))}
         </ul>
         <PasswordInput label="Confirm password" value={pw2} onChange={setPw2} error={pw2 && pw2 !== pw ? "Passwords don't match" : undefined} autoComplete="new-password" />
-        <Button type="submit" size="lg" block loading={busy} disabled={!strong || pw !== pw2}>Create password & continue</Button>
+        <Button type="submit" size="lg" block loading={busy} disabled={!strong || pw !== pw2}>Save password & continue</Button>
         <p className="text-center text-xs text-ink-500">You'll set your 4-digit POS PIN the first time you use a till.</p>
       </form>
     </AuthShell>
@@ -144,16 +179,52 @@ export function AcceptInvitePage() {
 }
 
 /* ═════════════ Onboarding ═════════════ */
-const steps = ["Business", "Settings", "First branch", "Done"];
+const steps = ["Account", "Business", "Settings", "First branch"];
 export function OnboardingPage() {
   const navigate = useNavigate();
+  const { signedIn, needsOnboarding, refresh, demo, ready } = useSession();
   const [step, setStep] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [acct, setAcct] = useState({ name: "", email: "", password: "" });
+  const [b, setB] = useState({ name: "", category: "Electronics", phone: "", email: "", address: "", tin: "", registration_no: "", currency: "GHS", timezone: "Africa/Accra",
+    tax: "none", tax_rate: "15", footer: "Thank you for shopping with us!", branch_name: "", branch_code: "", branch_address: "", branch_phone: "" });
+  const set = (k: keyof typeof b, v: string) => setB((x) => ({ ...x, [k]: v }));
+
+  useEffect(() => { if (!demo && ready && signedIn && step === 0) setStep(1); }, [demo, ready, signedIn, step]);
+  useEffect(() => { if (!demo && ready && signedIn && !needsOnboarding) navigate("/dashboard", { replace: true }); }, [demo, ready, signedIn, needsOnboarding, navigate]);
+
+  const createAccount = async () => {
+    setBusy(true); setError(null);
+    try {
+      await actions.signUp(acct.email, acct.password, acct.name);
+      await refresh(); // the new owner is signed in straight away
+      setStep(1);
+    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  };
+  const create = async () => {
+    setBusy(true); setError(null);
+    try {
+      await actions.createBusiness({
+        name: b.name, category: b.category, phone: b.phone, email: b.email, address: b.address, tin: b.tin, registration_no: b.registration_no,
+        currency: b.currency, timezone: b.timezone, owner_name: acct.name || undefined,
+        branch_name: b.branch_name || "Main branch", branch_code: b.branch_code || b.branch_name.slice(0, 3), branch_address: b.branch_address || b.address, branch_phone: b.branch_phone || b.phone,
+        settings: { tax_rate: b.tax === "none" ? 0 : Number(b.tax_rate) || 0, prices_include_tax: b.tax !== "exclusive", receipt_footer: b.footer },
+      });
+      await refresh();
+      navigate("/dashboard?welcome=1", { replace: true });
+    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  };
+
+  const canNext = step === 0 ? acct.name.trim().length > 1 && /\S+@\S+\.\S+/.test(acct.email) && acct.password.length >= 8
+    : step === 1 ? b.name.trim().length > 1 && b.phone.trim().length >= 9 : step === 3 ? b.branch_name.trim().length > 1 : true;
+
   return (
     <AuthShell wide>
       <ol className="mb-8 flex items-center gap-2">
         {steps.map((s, i) => (
           <li key={s} className="flex flex-1 items-center gap-2">
-            <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold", i < step ? "bg-emerald-600 text-white" : i === step ? "bg-brand-700 text-white" : "bg-ink-200 text-ink-500")}>
+            <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold", i < step ? "bg-emerald-600 text-white" : i === step ? "bg-brand-600 text-white" : "bg-ink-200 text-ink-500")}>
               {i < step ? <LuCheck className="size-4" /> : i + 1}
             </span>
             <span className={cn("hidden text-sm sm:block", i === step ? "font-medium text-ink-900" : "text-ink-500")}>{s}</span>
@@ -162,66 +233,67 @@ export function OnboardingPage() {
         ))}
       </ol>
       <Card className="p-6 sm:p-8">
+        {error && <div className="mb-4"><Callout tone="danger">{error}</Callout></div>}
         {step === 0 && (
           <div className="space-y-4">
-            <div><h1 className="text-xl font-semibold">Tell us about your business</h1><p className="text-sm text-ink-500">Shown on receipts and reports.</p></div>
-            <Input label="Business name" defaultValue="Famous TechX" required />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Select label="Category" defaultValue="Electronics"><option>Electronics</option><option>Retail</option><option>Pharmacy</option><option>Supermarket</option><option>Restaurant</option><option>Other</option></Select>
-              <Input label="Phone" defaultValue="030 201 4455" required />
-            </div>
-            <Input label="Email" type="email" defaultValue="hello@famoustechx.com" />
-            <Input label="Address" defaultValue="Oxford St, Osu, Accra" />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Input label="TIN (GRA)" hint="Optional" />
-              <Input label="Business registration no." hint="Optional" />
-            </div>
-            <div className="flex items-center gap-4 rounded-lg border border-dashed border-ink-300 p-4">
-              <Logo className="size-12" />
-              <div className="flex-1 text-sm"><p className="font-medium">Logo</p><p className="text-ink-500">PNG or JPG, square, up to 2 MB</p></div>
-              <Button variant="secondary" size="sm">Upload</Button>
-            </div>
+            <div><h1 className="text-xl font-semibold">Create your owner account</h1><p className="text-sm text-ink-500">You'll be the business owner with full access.</p></div>
+            <Input label="Your full name" required value={acct.name} onChange={(e) => setAcct({ ...acct, name: e.target.value })} autoFocus />
+            <Input label="Email" type="email" required value={acct.email} onChange={(e) => setAcct({ ...acct, email: e.target.value })} autoComplete="email" />
+            <PasswordInput label="Password" value={acct.password} onChange={(v) => setAcct({ ...acct, password: v })} hint="At least 8 characters" autoComplete="new-password" />
+            <p className="text-sm text-ink-500">Already have an account? <Link to="/login?next=/onboarding" className="font-medium text-brand-700 hover:underline">Sign in</Link></p>
           </div>
         )}
         {step === 1 && (
           <div className="space-y-4">
-            <div><h1 className="text-xl font-semibold">Money & time</h1><p className="text-sm text-ink-500">You can change these later in Settings.</p></div>
+            <div><h1 className="text-xl font-semibold">Tell us about your business</h1><p className="text-sm text-ink-500">Shown on receipts and reports.</p></div>
+            <Input label="Business name" required value={b.name} onChange={(e) => set("name", e.target.value)} autoFocus />
             <div className="grid gap-4 sm:grid-cols-2">
-              <Select label="Currency" defaultValue="GHS"><option value="GHS">Ghana cedi (GH₵)</option><option value="NGN">Nigerian naira (₦)</option><option value="USD">US dollar ($)</option></Select>
-              <Select label="Timezone" defaultValue="Africa/Accra"><option>Africa/Accra</option><option>Africa/Lagos</option></Select>
+              <Select label="Category" value={b.category} onChange={(e) => set("category", e.target.value)}><option>Electronics</option><option>Retail</option><option>Pharmacy</option><option>Supermarket</option><option>Restaurant</option><option>Other</option></Select>
+              <Input label="Phone" required value={b.phone} onChange={(e) => set("phone", e.target.value)} />
             </div>
-            <Select label="Tax" defaultValue="vat_std" hint="LOGIC: tax rules are applied by your checkout logic.">
-              <option value="none">No tax on sales</option>
-              <option value="vat_std">VAT standard scheme (prices include tax)</option>
-              <option value="vat_flat">VAT flat rate scheme</option>
-            </Select>
-            <Input label="Receipt footer" defaultValue="Thank you for shopping with us!" />
+            <Input label="Email" type="email" value={b.email} onChange={(e) => set("email", e.target.value)} />
+            <Input label="Address" value={b.address} onChange={(e) => set("address", e.target.value)} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input label="TIN (GRA)" hint="Optional" value={b.tin} onChange={(e) => set("tin", e.target.value)} />
+              <Input label="Business registration no." hint="Optional" value={b.registration_no} onChange={(e) => set("registration_no", e.target.value)} />
+            </div>
           </div>
         )}
         {step === 2 && (
           <div className="space-y-4">
-            <div><h1 className="text-xl font-semibold">Your first branch</h1><p className="text-sm text-ink-500">Add more branches any time.</p></div>
-            <Input label="Branch name" defaultValue="Accra – Osu (Main)" required />
-            <Input label="Address" defaultValue="Oxford St, Osu, Accra" />
-            <Input label="Branch phone" defaultValue="030 201 4455" />
-            <Callout tone="info">You'll be the Owner. Next you can add products, invite employees and register this device as a till.</Callout>
+            <div><h1 className="text-xl font-semibold">Money & time</h1><p className="text-sm text-ink-500">You can change these later in Settings.</p></div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Select label="Currency" value={b.currency} onChange={(e) => set("currency", e.target.value)}><option value="GHS">Ghana cedi (GH₵)</option></Select>
+              <Select label="Timezone" value={b.timezone} onChange={(e) => set("timezone", e.target.value)}><option>Africa/Accra</option></Select>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
+              <Select label="Tax on sales" value={b.tax} onChange={(e) => set("tax", e.target.value)}>
+                <option value="none">No tax</option>
+                <option value="inclusive">Prices include tax</option>
+                <option value="exclusive">Tax added on top of prices</option>
+              </Select>
+              {b.tax !== "none" && <Input label="Tax rate" prefix="%" inputMode="decimal" value={b.tax_rate} onChange={(e) => set("tax_rate", e.target.value.replace(/[^\d.]/g, ""))} hint="Check current GRA rates" />}
+            </div>
+            <Input label="Receipt footer" value={b.footer} onChange={(e) => set("footer", e.target.value)} />
           </div>
         )}
         {step === 3 && (
-          <div className="py-4 text-center">
-            <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><LuCheck className="size-8" /></div>
-            <h1 className="mt-4 text-2xl font-semibold">You're all set</h1>
-            <p className="mt-1 text-sm text-ink-500">Here's what most businesses do next:</p>
-            <div className="mx-auto mt-6 grid max-w-md gap-2 text-left">
-              {[["Add products & opening stock", "/products"], ["Invite your employees", "/employees"], ["Register this device as a till", "/settings?tab=terminals"]].map(([l, to]) => (
-                <Link key={to} to={to!} className="flex items-center justify-between rounded-lg px-4 py-3 text-sm font-medium ring-1 ring-ink-200 hover:bg-ink-50">{l}<span className="text-brand-700">→</span></Link>
-              ))}
+          <div className="space-y-4">
+            <div><h1 className="text-xl font-semibold">Your first branch</h1><p className="text-sm text-ink-500">Add more branches any time.</p></div>
+            <div className="grid gap-4 sm:grid-cols-[1fr_140px]">
+              <Input label="Branch name" required value={b.branch_name} onChange={(e) => set("branch_name", e.target.value)} placeholder="e.g. Accra – Osu" autoFocus />
+              <Input label="Short code" value={b.branch_code} onChange={(e) => set("branch_code", e.target.value.toUpperCase().slice(0, 4))} placeholder="OSU" hint="On receipt numbers" />
             </div>
+            <Input label="Address" value={b.branch_address} onChange={(e) => set("branch_address", e.target.value)} placeholder={b.address} />
+            <Input label="Branch phone" value={b.branch_phone} onChange={(e) => set("branch_phone", e.target.value)} placeholder={b.phone} />
+            <Callout tone="info">Next: add products (scan their barcodes), invite employees and register this device as a till.</Callout>
           </div>
         )}
         <div className="mt-8 flex justify-between">
-          {step > 0 && step < 3 ? <Button variant="ghost" onClick={() => setStep(step - 1)}>Back</Button> : <span />}
-          {step < 3 ? <Button onClick={() => setStep(step + 1)}>{step === 2 ? "Create business" : "Continue"}</Button> : <Button onClick={() => navigate("/dashboard")}>Go to dashboard</Button>}
+          {step > 1 ? <Button variant="ghost" onClick={() => setStep(step - 1)}>Back</Button> : <span />}
+          {step === 0 ? <Button loading={busy} disabled={!canNext} onClick={createAccount}>Create account</Button>
+            : step < 3 ? <Button disabled={!canNext} onClick={() => setStep(step + 1)}>Continue</Button>
+            : <Button loading={busy} disabled={!canNext} onClick={create}>Create business</Button>}
         </div>
       </Card>
     </AuthShell>

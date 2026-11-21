@@ -48,7 +48,7 @@ export function PinPad({
           <Spinner className="size-6 text-brand-600" />
         ) : (
           Array.from({ length }).map((_, i) => (
-            <span key={i} className={cn("size-4 rounded-full transition-colors", i < pin.length ? "bg-brand-700" : "bg-ink-200", error && "bg-rose-400")} />
+            <span key={i} className={cn("size-4 rounded-full transition-colors", i < pin.length ? "bg-brand-600" : "bg-ink-200", error && "bg-rose-400")} />
           ))
         )}
       </div>

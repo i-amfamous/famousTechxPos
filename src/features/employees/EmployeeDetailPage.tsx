@@ -3,16 +3,17 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   LuArrowLeft, LuCircleCheck, LuCircleX, LuCrown, LuEllipsisVertical, LuKeyRound, LuLogOut, LuMail, LuShieldCheck, LuUserCheck, LuUserX,
 } from "react-icons/lu";
+import { useSession } from "@/app/session";
 import {
-  actions, useActivity, useBranches, useEmployee, usePermissions, useRoles, useSales, useShifts, useSignIns,
+  actions, useActivity, useBranches, useEmployee, useEmployeePerformance, usePermissions, useRoles, useSignIns,
 } from "@/services/api";
 import {
   Avatar, Badge, BarChart, Button, Callout, Card, CardHeader, Checkbox, ConfirmDialog, DataTable, DL, EmptyState, ErrorState, Input,
-  Menu, Select, Skeleton, StatCard, Tabs, useToast,
+  Menu, Modal, Select, Skeleton, StatCard, Tabs, useToast,
 } from "@/components/ui";
 import { cn, formatDate, formatDateTime, formatMoney, timeAgo } from "@/lib/format";
 import type { Employee, Permission } from "@/types";
-import { activityIcon, PinBadge, StatusBadge } from "./shared";
+import { activityIcon, PinBadge, StatusBadge, resendInvite } from "./shared";
 
 type Tab = "overview" | "permissions" | "branches" | "activity" | "performance" | "signins" | "security";
 
@@ -23,7 +24,9 @@ export function EmployeeDetailPage() {
   const roles = useRoles().data;
   const navigate = useNavigate();
   const toast = useToast();
+  const { can } = useSession();
   const [confirm, setConfirm] = useState<null | "suspend" | "deactivate" | "reactivate" | "pin" | "password" | "signout">(null);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   if (q.loading) return <div className="space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-96 w-full" /></div>;
   if (q.error) return <ErrorState message={q.error} onRetry={q.refetch} />;
@@ -48,12 +51,12 @@ export function EmployeeDetailPage() {
             <p className="mt-0.5 text-xs text-ink-400">{e.lastSignInAt ? `Last signed in ${timeAgo(e.lastSignInAt)}` : "Hasn't signed in yet"}</p>
           </div>
           <div className="flex gap-2">
-            {e.status === "invited" && <Button variant="secondary" icon={<LuMail className="size-4" />} onClick={() => toast({ tone: "success", title: "Invite resent" })}>Resend invite</Button>}
+            {e.status === "invited" && can("employees.manage") && <Button variant="secondary" icon={<LuMail className="size-4" />} onClick={() => resendInvite(e.id, e.email, toast)}>Resend invite</Button>}
             {(e.status === "suspended" || e.status === "deactivated") && <Button icon={<LuUserCheck className="size-4" />} onClick={() => setConfirm("reactivate")}>Reactivate</Button>}
             <Menu
               trigger={(p) => <Button {...p} variant="secondary" icon={<LuEllipsisVertical className="size-4" />}>More</Button>}
               items={[
-                { label: "Reset POS PIN", icon: <LuKeyRound />, onClick: () => setConfirm("pin") },
+                { label: "Reset POS PIN", icon: <LuKeyRound />, onClick: () => setConfirm("pin"), disabled: !e.hasPin },
                 { label: "Reset password", icon: <LuKeyRound />, onClick: () => setConfirm("password") },
                 { label: "Sign out everywhere", icon: <LuLogOut />, onClick: () => setConfirm("signout") },
                 "divider",
@@ -90,6 +93,12 @@ export function EmployeeDetailPage() {
       {tab === "signins" && <SignInsTab e={e} />}
       {tab === "security" && <SecurityTab e={e} onAction={setConfirm} />}
 
+      {tempPassword && (
+        <Modal open onClose={() => setTempPassword(null)} title="New temporary password" size="sm" footer={<Button onClick={() => setTempPassword(null)}>Done</Button>}>
+          <p className="text-sm text-ink-600">Give this to {e.fullName} privately. They must change it when they sign in. It's shown only once.</p>
+          <p className="mt-4 rounded-lg bg-ink-50 p-3 text-center font-mono text-lg ring-1 ring-ink-200">{tempPassword}</p>
+        </Modal>
+      )}
       {confirm && (
         <ConfirmDialog
           open
@@ -106,7 +115,19 @@ export function EmployeeDetailPage() {
             signout: "All their sessions on every device end now.",
           }[confirm]}
           confirmLabel="Confirm"
-          onConfirm={async () => { await actions.updateEmployee(e.id, {}); toast({ tone: "success", title: "Done" }); }}
+          onConfirm={async (reason) => {
+            try {
+              if (confirm === "pin") await actions.resetPin(e.id);
+              else if (confirm === "signout") await actions.employeeAdmin("sign_out", e.id);
+              else if (confirm === "password") {
+                const r = await actions.employeeAdmin("reset_password", e.id);
+                if (r.tempPassword) setTempPassword(r.tempPassword);
+              } else await actions.employeeAdmin("set_status", e.id, { status: confirm === "reactivate" ? "active" : confirm === "suspend" ? "suspended" : "deactivated", reason });
+              toast({ tone: "success", title: "Done" });
+            } catch (er) {
+              toast({ tone: "error", title: "Couldn't complete that", body: (er as Error).message });
+            }
+          }}
         />
       )}
     </>
@@ -116,22 +137,30 @@ export function EmployeeDetailPage() {
 /* ───── Profile ───── */
 function ProfileTab({ e }: { e: Employee }) {
   const [editing, setEditing] = useState(false);
+  const [f, setF] = useState({ fullName: e.fullName, displayName: e.displayName, phone: e.phone, email: e.email ?? "", employeeCode: e.employeeCode, hireDate: e.hireDate });
+  const [busy, setBusy] = useState(false);
   const toast = useToast();
+  const { can } = useSession();
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
-        <CardHeader title="Personal details" action={!editing && <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>Edit</Button>} />
+        <CardHeader title="Personal details" action={!editing && can("employees.manage") && <Button size="sm" variant="secondary" onClick={() => { setF({ fullName: e.fullName, displayName: e.displayName, phone: e.phone, email: e.email ?? "", employeeCode: e.employeeCode, hireDate: e.hireDate }); setEditing(true); }}>Edit</Button>} />
         {editing ? (
-          <form className="grid gap-4 sm:grid-cols-2" onSubmit={async (ev) => { ev.preventDefault(); await actions.updateEmployee(e.id, {}); setEditing(false); toast({ tone: "success", title: "Profile saved" }); }}>
-            <Input label="Full name" defaultValue={e.fullName} required />
-            <Input label="Name on receipts" defaultValue={e.displayName} required />
-            <Input label="Phone" defaultValue={e.phone} required />
-            <Input label="Email" type="email" defaultValue={e.email} />
-            <Input label="Employee code" defaultValue={e.employeeCode} />
-            <Input label="Start date" type="date" defaultValue={e.hireDate} />
+          <form className="grid gap-4 sm:grid-cols-2" onSubmit={async (ev) => {
+            ev.preventDefault(); setBusy(true);
+            try { await actions.updateEmployeeProfile(e.id, f); setEditing(false); toast({ tone: "success", title: "Profile saved" }); }
+            catch (er) { toast({ tone: "error", title: "Couldn't save", body: (er as Error).message }); }
+            finally { setBusy(false); }
+          }}>
+            <Input label="Full name" value={f.fullName} onChange={(x) => setF({ ...f, fullName: x.target.value })} required />
+            <Input label="Name on receipts" value={f.displayName} onChange={(x) => setF({ ...f, displayName: x.target.value })} required />
+            <Input label="Phone" value={f.phone} onChange={(x) => setF({ ...f, phone: x.target.value })} required />
+            <Input label="Email (contact)" type="email" value={f.email} onChange={(x) => setF({ ...f, email: x.target.value })} hint="Changing this doesn't change their sign-in email." />
+            <Input label="Employee code" value={f.employeeCode} onChange={(x) => setF({ ...f, employeeCode: x.target.value })} />
+            <Input label="Start date" type="date" value={f.hireDate} onChange={(x) => setF({ ...f, hireDate: x.target.value })} />
             <div className="flex justify-end gap-2 sm:col-span-2">
               <Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
-              <Button type="submit">Save changes</Button>
+              <Button type="submit" loading={busy}>Save changes</Button>
             </div>
           </form>
         ) : (
@@ -225,7 +254,7 @@ function PermissionsTab({ e }: { e: Employee }) {
             <h3 className="font-semibold text-ink-900">Permissions</h3>
             <p className="text-sm text-ink-500">Switch on or off to override the role for {e.displayName} only.</p>
           </div>
-          <Button disabled={!dirty} onClick={async () => { await actions.updateEmployee(e.id, { roleId, overrides }); toast({ tone: "success", title: "Permissions saved", body: "Logged in the activity log." }); }}>Save</Button>
+          <Button disabled={!dirty} onClick={async () => { try { await actions.saveMemberAccess(e.id, roleId, overrides, e.branchIds); toast({ tone: "success", title: "Permissions saved", body: "Logged in the activity log." }); } catch (er) { toast({ tone: "error", title: "Couldn't save", body: (er as Error).message }); } }}>Save</Button>
         </div>
         <div className="divide-y divide-ink-100">
           {modules.map((m) => (
@@ -279,7 +308,7 @@ function BranchesTab({ e }: { e: Employee }) {
         ))}
       </ul>
       {sel.length === 0 && <p className="mt-2 text-sm text-rose-600">Choose at least one branch.</p>}
-      <div className="mt-4 flex justify-end"><Button disabled={!sel.length} onClick={async () => { await actions.updateEmployee(e.id, { branchIds: sel }); toast({ tone: "success", title: "Branch access saved" }); }}>Save</Button></div>
+      <div className="mt-4 flex justify-end"><Button disabled={!sel.length || e.isOwner} onClick={async () => { try { await actions.saveMemberAccess(e.id, e.roleId, e.overrides, sel); toast({ tone: "success", title: "Branch access saved" }); } catch (er) { toast({ tone: "error", title: "Couldn't save", body: (er as Error).message }); } }}>Save</Button></div>
     </Card>
   );
 }
@@ -314,7 +343,7 @@ export function ActivityList({ events, showActor }: { events: ReturnType<typeof 
 }
 
 function ActivityTab({ e }: { e: Employee }) {
-  const events = useActivity().data.filter((a) => a.actorId === e.id || a.detail.includes(e.fullName));
+  const events = useActivity().data.filter((a) => a.actorId === e.id || a.detail.includes(e.fullName)).slice(0, 60);
   return (
     <Card>
       <CardHeader title="Recent activity" description="Everything this employee did or that affected them." action={<Link to="/activity" className="text-sm font-medium text-brand-700 hover:underline">Full activity log →</Link>} />
@@ -325,37 +354,32 @@ function ActivityTab({ e }: { e: Employee }) {
 
 /* ───── Performance ───── */
 function PerformanceTab({ e }: { e: Employee }) {
-  const sales = useSales().data.filter((s) => s.cashierId === e.id);
-  const shifts = useShifts().data.filter((s) => s.employeeId === e.id && s.status === "closed");
-  const revenue = sales.filter((s) => s.status !== "voided").reduce((a, s) => a + s.total, 0);
-  const discounts = sales.reduce((a, s) => a + s.discountTotal, 0);
-  const trend = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => ({ label: d, value: [1200, 2100, 1650, 2400, 3100, 3900, revenue][i]! }));
+  const q = useEmployeePerformance(e.id);
+  const d = q.data;
+  if (q.loading) return <Skeleton className="h-64 w-full" />;
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Sales (7 days)" value={formatMoney(revenue + 14350)} change={8} hint="vs last week" />
-        <StatCard label="Transactions" value={sales.length + 41} hint="7 days" />
-        <StatCard label="Average sale" value={formatMoney(342.6)} />
-        <StatCard label="Discounts given" value={formatMoney(discounts + 45)} hint="2 needed approval" />
+        <StatCard label="Sales (7 days)" value={formatMoney(d.revenue)} hint="after refunds" />
+        <StatCard label="Transactions" value={d.salesCount} hint="7 days" />
+        <StatCard label="Average sale" value={formatMoney(d.avgSale)} />
+        <StatCard label="Discounts given" value={formatMoney(d.discounts)} hint={`${d.discountsApproved} needed approval`} />
       </div>
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader title="Daily sales" description="Last 7 days" />
-          <BarChart data={trend} />
+          {d.trend.length ? <BarChart data={d.trend} /> : <EmptyState title="No sales yet" className="py-8" />}
         </Card>
         <Card>
           <CardHeader title="Cash accuracy" description="Recent shift variances" />
-          {shifts.length ? (
+          {d.shifts.length ? (
             <ul className="space-y-3">
-              {shifts.map((s) => {
-                const v = (s.countedCash ?? 0) - s.expectedCash;
-                return (
-                  <li key={s.id} className="flex items-center justify-between text-sm">
-                    <span className="text-ink-600">{formatDate(s.openedAt)}</span>
-                    <Badge tone={v === 0 ? "success" : Math.abs(v) > 10 ? "danger" : "warning"}>{v === 0 ? "Balanced" : `${v > 0 ? "+" : "−"}${formatMoney(Math.abs(v))}`}</Badge>
-                  </li>
-                );
-              })}
+              {d.shifts.map((s) => (
+                <li key={s.id} className="flex items-center justify-between text-sm">
+                  <span className="text-ink-600">{formatDate(s.closedAt)}</span>
+                  <Badge tone={s.variance === 0 ? "success" : Math.abs(s.variance) > 10 ? "danger" : "warning"}>{s.variance === 0 ? "Balanced" : `${s.variance > 0 ? "+" : "−"}${formatMoney(Math.abs(s.variance))}`}</Badge>
+                </li>
+              ))}
             </ul>
           ) : <p className="text-sm text-ink-500">No closed shifts yet.</p>}
         </Card>

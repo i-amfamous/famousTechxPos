@@ -1,0 +1,13 @@
+# Supabase CLI config (only the parts this project changes; `supabase init` adds the rest).
+project_id = "famous-techx-pos"
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/accept-invite", "https://localhost:5173/accept-invite"]
+
+# Called from locked tills / the sign-in page, before a user session exists.
+[functions.pos-pin-login]
+verify_jwt = false
+
+[functions.staff-login]
+verify_jwt = false

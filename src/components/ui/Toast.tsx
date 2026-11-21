@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { LuCircleAlert, LuCircleCheck, LuInfo, LuX } from "react-icons/lu";
 import { cn } from "@/lib/format";
+import { QUERY_ERROR_EVENT } from "@/lib/query";
 
 type ToastTone = "success" | "error" | "info";
 interface Toast { id: number; tone: ToastTone; title: string; body?: string }
@@ -14,6 +15,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setItems((s) => [...s, { ...t, id }]);
     setTimeout(() => setItems((s) => s.filter((x) => x.id !== id)), 4000);
   }, []);
+  const lastError = useRef<{ message: string; at: number } | null>(null);
+  useEffect(() => {
+    const onQueryError = (e: Event) => {
+      const message = (e as CustomEvent<{ message?: string }>).detail?.message ?? "Something went wrong.";
+      const now = Date.now();
+      if (lastError.current?.message === message && now - lastError.current.at < 8_000) return;
+      lastError.current = { message, at: now };
+      push({ tone: "error", title: "Couldn't load data", body: message });
+    };
+    window.addEventListener(QUERY_ERROR_EVENT, onQueryError);
+    return () => window.removeEventListener(QUERY_ERROR_EVENT, onQueryError);
+  }, [push]);
   return (
     <Ctx.Provider value={push}>
       {children}

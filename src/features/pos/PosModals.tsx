@@ -3,31 +3,33 @@ import {
   LuBanknote, LuCircleCheck, LuCreditCard, LuLandmark, LuPlus, LuPrinter, LuShieldCheck, LuSmartphone, LuTrash2, LuUserPlus,
 } from "react-icons/lu";
 import { useSession } from "@/app/session";
-import { actions, useCustomers, useEmployees, useHeldCarts, useShifts } from "@/services/api";
+import { actions, useApprovers, useCustomers, useEmployees, useHeldCarts, useShiftSummary } from "@/services/api";
 import {
-  Avatar, Badge, Button, Callout, DL, Drawer, EmptyState, Input, Modal, PinPad, SearchInput, Segmented, Select, Textarea,
+  Avatar, Badge, Button, Callout, ConfirmDialog, DL, Drawer, EmptyState, Input, Modal, PinPad, SearchInput, Segmented, Select, Textarea, useToast,
 } from "@/components/ui";
 import { cn, formatMoney, formatTime, methodLabel, timeAgo } from "@/lib/format";
-import type { CartLine, Customer, Employee, PaymentLine, PaymentMethod } from "@/types";
-import { Receipt, type ReceiptData } from "./Receipt";
+import type { CartLine, Customer, HeldCart, PaymentLine, PaymentMethod, SaleReceipt } from "@/types";
+import { Receipt } from "./Receipt";
 
 /* ═════════════ Manager approval ═════════════ */
 export interface ApprovalRequest {
+  /** Server action key: discount | price_override | take_over_cart | no_sale | drop | shift_variance | refund | void */
+  action: string;
   title: string;      // e.g. "Discount above your limit"
   detail: string;     // e.g. "15% on Samsung Galaxy A15 (your limit is 5%)"
   amount?: number;
-  permission: string; // permission the approver must hold
+  permission?: string; // permission the approver must hold
 }
 
-export function ApprovalModal({ request, onClose, onApproved }: { request: ApprovalRequest | null; onClose: () => void; onApproved: (approver: Employee) => void }) {
-  const { branch, roleOf, posUser } = useSession();
-  const approvers = useEmployees().data.filter(
-    (e) => e.status === "active" && e.id !== posUser?.id && e.branchIds.includes(branch.id) && roleOf(e).permissions.includes(request?.permission ?? "pos.approve"),
-  );
-  const [approver, setApprover] = useState<Employee | null>(null);
+interface Approver { id: string; fullName: string; displayName: string; avatarColor: string; roleName: string }
+
+export function ApprovalModal({ request, onClose, onApproved }: { request: ApprovalRequest | null; onClose: () => void; onApproved: (approver: Approver, approvalId: string) => void }) {
+  const { posUser, terminal } = useSession();
+  const approvers = useApprovers(request?.permission ?? "pos.approve").data;
+  const [approver, setApprover] = useState<Approver | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { setApprover(null); setError(null); }, [request]);
+  useEffect(() => { setApprover(null); setError(null); setBusy(false); }, [request]);
 
   return (
     <Modal open={!!request} onClose={onClose} title="Manager approval needed" size="md">
@@ -35,7 +37,7 @@ export function ApprovalModal({ request, onClose, onApproved }: { request: Appro
         <div className="space-y-5">
           <Callout tone="warning" icon={<LuShieldCheck className="size-5" />} title={request.title}>
             {request.detail}
-            {request.amount !== undefined && <span className="num font-semibold"> · {formatMoney(request.amount)}</span>}
+            {request.amount !== undefined && <span className="num font-semibold"> · {formatMoney(Math.abs(request.amount))}</span>}
             <p className="mt-1 text-xs">Requested by {posUser?.fullName ?? "current cashier"}. Both names are recorded.</p>
           </Callout>
           {!approver ? (
@@ -44,15 +46,15 @@ export function ApprovalModal({ request, onClose, onApproved }: { request: Appro
               {approvers.length ? (
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {approvers.map((a) => (
-                    <button key={a.id} onClick={() => setApprover(a)} className="flex flex-col items-center gap-2 rounded-xl p-3 ring-1 ring-ink-200 hover:bg-brand-50 hover:ring-brand-300">
+                    <button key={a.id} onClick={() => { setError(null); setApprover(a); }} className="flex flex-col items-center gap-2 rounded-xl p-3 ring-1 ring-ink-200 hover:bg-brand-50 hover:ring-brand-300">
                       <Avatar name={a.fullName} color={a.avatarColor} size="lg" />
                       <span className="text-sm font-medium">{a.displayName}</span>
-                      <span className="text-xs text-ink-500">{roleOf(a).name}</span>
+                      <span className="text-xs text-ink-500">{a.roleName}</span>
                     </button>
                   ))}
                 </div>
               ) : (
-                <Callout tone="danger">No one on this branch can approve this action. Cancel and ask an owner to adjust your limits.</Callout>
+                <Callout tone="danger">No one on this branch with a PIN can approve this. Ask an owner to adjust your limits or set up a manager.</Callout>
               )}
             </div>
           ) : (
@@ -63,10 +65,15 @@ export function ApprovalModal({ request, onClose, onApproved }: { request: Appro
                 busy={busy}
                 onComplete={async (pin) => {
                   setBusy(true);
-                  const ok = await actions.approveAction(approver.id, pin, { type: request.title, amount: request.amount }); // LOGIC
-                  setBusy(false);
-                  if (ok) onApproved(approver);
-                  else setError("Wrong PIN or not allowed to approve.");
+                  try {
+                    const id = await actions.approveAction({ terminalId: terminal?.id ?? null, approverId: approver.id, pin, action: request.action,
+                      amount: request.amount !== undefined ? Math.abs(request.amount) : undefined, detail: request.detail });
+                    onApproved(approver, id);
+                  } catch (e) {
+                    setError((e as Error).message);
+                  } finally {
+                    setBusy(false);
+                  }
                 }}
               />
               <button onClick={() => setApprover(null)} className="mt-4 text-sm text-ink-500 hover:text-ink-900">Choose someone else</button>
@@ -81,7 +88,7 @@ export function ApprovalModal({ request, onClose, onApproved }: { request: Appro
 /* ═════════════ Discount ═════════════ */
 export function DiscountModal({
   open, onClose, subtotal, limitPercent, onApply,
-}: { open: boolean; onClose: () => void; subtotal: number; limitPercent: number; onApply: (amount: number, needsApproval: boolean, label: string) => void }) {
+}: { open: boolean; onClose: () => void; subtotal: number; limitPercent: number; onApply: (amount: number, needsApproval: boolean, label: string, reason: string) => void }) {
   const [kind, setKind] = useState<"percent" | "amount">("percent");
   const [value, setValue] = useState("");
   const [reason, setReason] = useState("");
@@ -101,7 +108,7 @@ export function DiscountModal({
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button disabled={invalid || reason.trim().length < 2} onClick={() => onApply(amount, over, kind === "percent" ? `${n}%` : formatMoney(n))}>
+          <Button disabled={invalid || reason.trim().length < 2} onClick={() => onApply(amount, over, kind === "percent" ? `${n}%` : formatMoney(n), reason.trim())}>
             {over ? "Request approval" : "Apply discount"}
           </Button>
         </>
@@ -134,24 +141,33 @@ export function CustomerModal({ open, onClose, onPick }: { open: boolean; onClos
   const customers = useCustomers().data;
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
-  const list = customers.filter((c) => (c.name + c.phone).toLowerCase().includes(q.toLowerCase()));
+  const [form, setForm] = useState({ name: "", phone: "", email: "" });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { if (open) { setQ(""); setCreating(false); setForm({ name: "", phone: "", email: "" }); setErr(null); } }, [open]);
+  const list = customers.filter((c) => (c.name + c.phone).toLowerCase().includes(q.toLowerCase())).slice(0, 50);
   return (
     <Modal open={open} onClose={onClose} title={creating ? "New customer" : "Attach customer"} size="md">
       {creating ? (
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); setCreating(false); }}>
-          <Input label="Full name" required autoFocus />
-          <Input label="Phone" required inputMode="tel" placeholder="024 000 0000" />
-          <Input label="Email" type="email" hint="Optional" />
+        <form className="space-y-4" onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true); setErr(null);
+          try { onPick(await actions.saveCustomer(form)); } catch (er) { setErr((er as Error).message); } finally { setBusy(false); }
+        }}>
+          {err && <Callout tone="danger">{err}</Callout>}
+          <Input label="Full name" required autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <Input label="Phone" required inputMode="tel" placeholder="024 000 0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <Input label="Email" type="email" hint="Optional" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setCreating(false)}>Back</Button>
-            <Button type="submit">Save & attach</Button>
+            <Button type="submit" loading={busy} disabled={form.name.trim().length < 2 || form.phone.trim().length < 9}>Save & attach</Button>
           </div>
         </form>
       ) : (
         <div className="space-y-3">
           <div className="flex gap-2">
             <SearchInput className="flex-1" placeholder="Search name or phone" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
-            <Button variant="secondary" icon={<LuUserPlus className="size-4" />} onClick={() => setCreating(true)}>New</Button>
+            <Button variant="secondary" icon={<LuUserPlus className="size-4" />} onClick={() => { setCreating(true); if (/^\d/.test(q)) setForm((f) => ({ ...f, phone: q })); else setForm((f) => ({ ...f, name: q })); }}>New</Button>
           </div>
           <ul className="max-h-80 divide-y divide-ink-100 overflow-y-auto rounded-lg ring-1 ring-ink-200">
             {list.map((c) => (
@@ -166,7 +182,7 @@ export function CustomerModal({ open, onClose, onPick }: { open: boolean; onClos
                 </button>
               </li>
             ))}
-            {!list.length && <li className="p-6 text-center text-sm text-ink-500">No customer matches “{q}”.</li>}
+            {!list.length && <li className="p-6 text-center text-sm text-ink-500">{q ? `No customer matches “${q}”.` : "No customers yet."}</li>}
           </ul>
         </div>
       )}
@@ -175,11 +191,13 @@ export function CustomerModal({ open, onClose, onPick }: { open: boolean; onClos
 }
 
 /* ═════════════ Held carts ═════════════ */
-export function HeldCartsDrawer({ open, onClose, onResume }: { open: boolean; onClose: () => void; onResume: (lines: CartLine[], needsApproval: boolean) => void }) {
-  const { posUser, roleOf } = useSession();
+export function HeldCartsDrawer({ open, onClose, onResume }: { open: boolean; onClose: () => void; onResume: (cart: HeldCart, needsApproval: boolean) => void }) {
+  const { posUser, can } = useSession();
   const held = useHeldCarts().data;
   const employees = useEmployees().data;
-  const canTakeOver = posUser ? (posUser.overrides.some((o) => o.permission === "pos.take_over_cart" && o.effect === "grant") || roleOf(posUser).permissions.includes("pos.take_over_cart")) : false;
+  const toast = useToast();
+  const [confirmDiscard, setConfirmDiscard] = useState<HeldCart | null>(null);
+  const canTakeOver = can("pos.take_over_cart") || (!!posUser && posUser.overrides.some((o) => o.permission === "pos.take_over_cart" && o.effect === "grant"));
   return (
     <Drawer open={open} onClose={onClose} title="Held carts" description="Parked sales waiting to be completed">
       {held.length === 0 ? (
@@ -195,15 +213,15 @@ export function HeldCartsDrawer({ open, onClose, onResume }: { open: boolean; on
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-ink-900">{h.note || "Untitled"}</p>
-                    <p className="text-xs text-ink-500">{owner?.fullName} · {timeAgo(h.createdAt)} · {h.lines.length} item{h.lines.length > 1 && "s"}</p>
+                    <p className="text-xs text-ink-500">{owner?.fullName ?? "Someone"} · {timeAgo(h.createdAt)} · {h.lines.length} item{h.lines.length > 1 && "s"}</p>
                   </div>
                   <span className="num font-semibold">{formatMoney(total)}</span>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
-                  {mine ? <Badge tone="brand">Yours</Badge> : <Badge>{owner?.displayName}'s cart</Badge>}
+                  {mine ? <Badge tone="brand">Yours</Badge> : <Badge>{owner?.displayName ?? "Other"}'s cart</Badge>}
                   <div className="flex gap-2">
-                    <Button size="sm" variant="ghost" icon={<LuTrash2 className="size-4" />}>Discard</Button>
-                    <Button size="sm" onClick={() => onResume(h.lines, !mine && !canTakeOver)}>{mine || canTakeOver ? "Resume" : "Resume (needs approval)"}</Button>
+                    {(mine || canTakeOver) && <Button size="sm" variant="ghost" icon={<LuTrash2 className="size-4" />} onClick={() => setConfirmDiscard(h)}>Discard</Button>}
+                    <Button size="sm" onClick={() => onResume(h, !mine && !canTakeOver)}>{mine || canTakeOver ? "Resume" : "Resume (needs approval)"}</Button>
                   </div>
                 </div>
               </li>
@@ -211,18 +229,36 @@ export function HeldCartsDrawer({ open, onClose, onResume }: { open: boolean; on
           })}
         </ul>
       )}
+      <ConfirmDialog
+        open={!!confirmDiscard}
+        onClose={() => setConfirmDiscard(null)}
+        title="Discard this held cart?"
+        message={confirmDiscard?.note ? `“${confirmDiscard.note}” will be removed. This can't be undone.` : "This parked sale will be removed. This can't be undone."}
+        confirmLabel="Discard cart"
+        onConfirm={async () => {
+          const cart = confirmDiscard;
+          setConfirmDiscard(null);
+          if (!cart) return;
+          try { await actions.discardHeldCart(cart.id); toast({ tone: "success", title: "Held cart discarded" }); }
+          catch (e) { toast({ tone: "error", title: (e as Error).message }); }
+        }}
+      />
     </Drawer>
   );
 }
 
 /* ═════════════ Cash in / out ═════════════ */
-export function CashMovementModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (needsApproval: boolean, amount: number, type: string) => void }) {
-  const [type, setType] = useState<"paid_in" | "paid_out" | "drop" | "no_sale">("paid_out");
+export type CashMoveType = "paid_in" | "paid_out" | "drop" | "no_sale";
+export const cashMoveLabel: Record<CashMoveType, string> = { paid_in: "Cash in", paid_out: "Cash out", drop: "Cash drop (to safe)", no_sale: "Open drawer (no sale)" };
+
+export function CashMovementModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: (m: { type: CashMoveType; amount: number; reason: string; needsApproval: boolean }) => void }) {
+  const { can, role } = useSession();
+  const [type, setType] = useState<CashMoveType>("paid_out");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   useEffect(() => { if (open) { setAmount(""); setReason(""); } }, [open]);
   const n = Number(amount) || 0;
-  const labels = { paid_in: "Cash in", paid_out: "Cash out", drop: "Cash drop (to safe)", no_sale: "Open drawer (no sale)" };
+  const needsApproval = type === "no_sale" ? !(can("pos.no_sale") || role.limits.allowNoSale) : type === "drop" ? !can("pos.approve") : false;
   return (
     <Modal
       open={open}
@@ -232,21 +268,21 @@ export function CashMovementModal({ open, onClose, onDone }: { open: boolean; on
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button disabled={(type !== "no_sale" && n <= 0) || reason.trim().length < 2} onClick={() => onDone(type === "no_sale" || type === "drop", n, labels[type])}>Record</Button>
+          <Button disabled={(type !== "no_sale" && n <= 0) || reason.trim().length < 2} onClick={() => onDone({ type, amount: n, reason: reason.trim(), needsApproval })}>{needsApproval ? "Get approval" : "Record"}</Button>
         </>
       }
     >
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
-          {(Object.keys(labels) as (keyof typeof labels)[]).map((k) => (
+          {(Object.keys(cashMoveLabel) as CashMoveType[]).map((k) => (
             <button key={k} onClick={() => setType(k)} className={cn("rounded-lg px-3 py-2.5 text-sm font-medium ring-1", type === k ? "bg-brand-50 text-brand-800 ring-brand-400" : "ring-ink-200 hover:bg-ink-50")}>
-              {labels[k]}
+              {cashMoveLabel[k]}
             </button>
           ))}
         </div>
         {type !== "no_sale" && <Input label="Amount" prefix="GH₵" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))} autoFocus />}
         <Textarea label="Reason" required rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={type === "paid_out" ? "e.g. Bought printer paper" : type === "drop" ? "e.g. Too much cash in drawer" : "Reason"} />
-        {(type === "no_sale" || type === "drop") && <Callout tone="info">This needs manager approval.</Callout>}
+        {needsApproval && <Callout tone="info">This needs manager approval.</Callout>}
       </div>
     </Modal>
   );
@@ -254,11 +290,14 @@ export function CashMovementModal({ open, onClose, onDone }: { open: boolean; on
 
 /* ═════════════ X report (mid-shift) ═════════════ */
 export function XReportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const shift = useShifts().data.find((s) => s.status === "open");
-  const { posUser, terminal } = useSession();
+  const { posUser, terminal, shiftId } = useSession();
+  const q = useShiftSummary(open ? shiftId : null);
+  const refetch = q.refetch;
+  const shift = q.data?.shift;
+  useEffect(() => { if (open) refetch(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Modal open={open} onClose={onClose} title="X report" description="Mid-shift summary — does not close the shift" size="md" footer={<Button variant="secondary" icon={<LuPrinter className="size-4" />} onClick={() => window.print()}>Print</Button>}>
-      {shift ? (
+      {q.loading ? <p className="text-sm text-ink-500">Loading…</p> : shift ? (
         <div className="space-y-5">
           <DL items={[
             { label: "Employee", value: posUser?.fullName ?? "—" },
@@ -269,11 +308,11 @@ export function XReportModal({ open, onClose }: { open: boolean; onClose: () => 
           <div className="rounded-lg ring-1 ring-ink-200">
             {(Object.keys(shift.byMethod) as PaymentMethod[]).map((m) => (
               <div key={m} className="flex justify-between border-b border-ink-100 px-4 py-2.5 text-sm last:border-0">
-                <span>{methodLabel[m]}</span><span className="num font-medium">{formatMoney(shift.byMethod[m])}</span>
+                <span>{methodLabel[m]}{m === "cash" ? " (after change)" : ""}</span><span className="num font-medium">{formatMoney(shift.byMethod[m])}</span>
               </div>
             ))}
           </div>
-          <div className="flex justify-between rounded-lg bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-900">
+          <div className="flex justify-between rounded-lg bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-800">
             <span>Expected cash in drawer</span><span className="num">{formatMoney(shift.expectedCash)}</span>
           </div>
         </div>
@@ -293,23 +332,25 @@ const methods: { value: PaymentMethod; label: string; icon: ReactNode }[] = [
 ];
 
 export function PaymentModal({
-  open, onClose, total, lines, subtotal, discount, customer, onComplete,
+  open, onClose, total, lines, customer, cartDiscount, discountReason, discountApprovalId, priceApprovalId, idempotencyKey, onComplete,
 }: {
-  open: boolean; onClose: () => void; total: number; subtotal: number; discount: number; lines: CartLine[]; customer: Customer | null;
-  onComplete: () => void;
+  open: boolean; onClose: () => void; total: number; lines: CartLine[]; customer: Customer | null; cartDiscount: number; discountReason?: string;
+  discountApprovalId?: string | null; priceApprovalId?: string | null; idempotencyKey: string; onComplete: () => void;
 }) {
-  const { posUser, terminal, branch } = useSession();
+  const { posUser, terminal, branch, business } = useSession();
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState("");
   const [ref, setRef] = useState("");
   const [network, setNetwork] = useState("MTN");
   const [tenders, setTenders] = useState<PaymentLine[]>([]);
   const [stage, setStage] = useState<"pay" | "processing" | "done" | "error">("pay");
-  const [receiptNo, setReceiptNo] = useState("");
+  const [receipt, setReceipt] = useState<SaleReceipt | null>(null);
+  const [error, setError] = useState("");
+  // The key belongs to the cart (owned by PosPage), so closing/reopening this modal can't create a second sale.
 
   useEffect(() => {
-    if (open) { setTenders([]); setStage("pay"); setMethod("cash"); setAmount(""); setRef(""); }
-  }, [open]);
+    if (open) { setTenders([]); setStage("pay"); setMethod("cash"); setAmount(""); setRef(""); setReceipt(null); setError(""); }
+  }, [open, idempotencyKey]);
 
   const paid = tenders.reduce((s, t) => s + t.amount, 0);
   const remaining = Math.max(0, +(total - paid).toFixed(2));
@@ -319,56 +360,54 @@ export function PaymentModal({
 
   const addTender = () => {
     if (entered <= 0) return;
-    if (method !== "cash" && entered > remaining) return; // only cash can exceed (change)
-    setTenders((t) => [...t, { method, amount: entered, reference: method === "momo" ? `${network} ${ref}`.trim() : ref || undefined }]);
+    if (method !== "cash" && entered > remaining) return;
+    if (method === "momo" && !ref.trim()) return;
+    setTenders((t) => [...t, { method, amount: +entered.toFixed(2), reference: method === "momo" ? `${network} ${ref}`.trim() : ref || undefined }]);
     setAmount("");
     setRef("");
   };
 
   const complete = async () => {
+    if (!terminal) return;
     setStage("processing");
     try {
-      // LOGIC: one atomic, idempotent checkout call (SRS §5.2)
-      const res = await actions.checkout({ lines, payments: tenders, customerId: customer?.id, idempotencyKey: crypto.randomUUID() });
-      setReceiptNo(res.receiptNumber);
+      const r = await actions.checkout({ terminalId: terminal.id, lines, payments: tenders, customerId: customer?.id, cartDiscount, discountReason,
+        discountApprovalId, priceApprovalId, idempotencyKey });
+      setReceipt({ ...r, servedBy: r.servedBy || posUser?.displayName || "", terminal: r.terminal || terminal.name, branch: r.branch || branch.name, customer: r.customer ?? customer?.name,
+        business: r.business ?? (business ? { name: business.name, phone: business.phone, tin: business.tin } : undefined) });
       setStage("done");
-    } catch {
+    } catch (e) {
+      setError((e as Error).message);
       setStage("error");
     }
   };
 
-  const receipt: ReceiptData = {
-    receiptNumber: receiptNo, createdAt: new Date().toISOString(), servedBy: posUser?.displayName ?? "", terminal: terminal?.name ?? "", branch: branch.name,
-    customer: customer?.name, items: lines.map((l) => ({ name: l.name, quantity: l.quantity, unitPrice: l.unitPrice, discount: l.discount })),
-    subtotal, discountTotal: discount, taxTotal: 0, total, payments: tenders, change: cashChange,
-  };
-
-  const covered = paid >= total;
+  const covered = paid >= total && total >= 0 && (tenders.length > 0 || total === 0);
 
   return (
     <Modal open={open} onClose={stage === "processing" ? () => {} : stage === "done" ? onComplete : onClose} size="lg" dismissible={stage !== "processing"} title={stage === "done" ? undefined : "Take payment"}>
-      {stage === "done" ? (
+      {stage === "done" && receipt ? (
         <div className="grid gap-6 sm:grid-cols-[1fr_auto]">
           <div className="flex flex-col items-center justify-center text-center">
             <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><LuCircleCheck className="size-9" /></div>
             <h2 className="mt-4 text-2xl font-semibold text-ink-900">Sale complete</h2>
-            <p className="text-sm text-ink-500">Receipt {receiptNo}</p>
-            {cashChange > 0 && (
+            <p className="text-sm text-ink-500">Receipt {receipt.receiptNumber}</p>
+            {!!receipt.change && (
               <div className="mt-6 rounded-2xl bg-amber-50 px-8 py-4 ring-1 ring-amber-200">
                 <p className="text-sm font-medium text-amber-800">Give change</p>
-                <p className="num text-4xl font-bold text-amber-900">{formatMoney(cashChange)}</p>
+                <p className="num text-4xl font-bold text-amber-900">{formatMoney(receipt.change)}</p>
               </div>
             )}
             <div className="mt-8 flex w-full max-w-xs flex-col gap-2">
               <Button size="lg" icon={<LuPrinter className="size-5" />} onClick={() => window.print()}>Print receipt</Button>
-              <Button size="lg" variant="secondary" onClick={onComplete}>New sale</Button>
+              <Button size="lg" variant="secondary" onClick={onComplete} autoFocus>New sale</Button>
             </div>
           </div>
           <Receipt data={receipt} className="hidden sm:block" />
         </div>
       ) : stage === "error" ? (
         <div className="space-y-4 text-center">
-          <Callout tone="danger" title="Checkout didn't go through">No sale was saved and no stock was deducted. Your cart is still here — check the connection and try again.</Callout>
+          <Callout tone="danger" title="Checkout didn't go through">{error} Your cart is still here. Retrying is safe — if the sale was saved, the same receipt is returned instead of charging again.</Callout>
           <div className="flex justify-center gap-2">
             <Button variant="secondary" onClick={onClose}>Back to cart</Button>
             <Button onClick={complete}>Retry</Button>
@@ -382,7 +421,7 @@ export function PaymentModal({
                 <button
                   key={m.value}
                   onClick={() => setMethod(m.value)}
-                  className={cn("flex flex-col items-center gap-1 rounded-xl py-3 text-sm font-medium ring-1 transition-colors", method === m.value ? "bg-brand-700 text-white ring-brand-700" : "text-ink-700 ring-ink-200 hover:bg-ink-50")}
+                  className={cn("flex flex-col items-center gap-1 rounded-xl py-3 text-sm font-medium ring-1 transition-colors", method === m.value ? "bg-brand-600 text-white ring-brand-600" : "text-ink-700 ring-ink-200 hover:bg-ink-50")}
                 >
                   {m.icon}{m.label}
                 </button>
@@ -395,6 +434,7 @@ export function PaymentModal({
               placeholder={remaining.toFixed(2)}
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTender(); } }}
               hint={method !== "cash" ? "Can't be more than the remaining balance." : "Enter cash received — change is calculated."}
             />
             {method === "cash" && (
@@ -409,14 +449,14 @@ export function PaymentModal({
                 <Select label="Network" value={network} onChange={(e) => setNetwork(e.target.value)}>
                   <option>MTN</option><option>Telecel</option><option>AT</option>
                 </Select>
-                <Input label="Transaction ID" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="From the customer's SMS" />
+                <Input label="Transaction ID" required value={ref} onChange={(e) => setRef(e.target.value)} placeholder="From the customer's SMS" />
               </div>
             )}
             {(method === "card" || method === "bank") && <Input label="Reference" hint="Optional" value={ref} onChange={(e) => setRef(e.target.value)} />}
             {method !== "cash" && (
               <Callout tone="info">Recorded manually. Confirm you've seen the payment before adding it — it isn't verified electronically.</Callout>
             )}
-            <Button block variant="outline" icon={<LuPlus className="size-4" />} disabled={entered <= 0 || (method !== "cash" && entered > remaining) || remaining === 0} onClick={addTender}>
+            <Button block variant="outline" icon={<LuPlus className="size-4" />} disabled={entered <= 0 || (method !== "cash" && entered > remaining) || remaining === 0 || (method === "momo" && !ref.trim())} onClick={addTender}>
               Add {formatMoney(entered)} {methodLabel[method]}
             </Button>
           </div>

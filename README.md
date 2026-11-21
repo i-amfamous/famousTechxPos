@@ -1,60 +1,112 @@
-# famousTechxPos
-A POS system built for a business
+# Famous TechX POS
 
-**Famous TechX POS — UI/UX layer.** React + TypeScript + Vite + Tailwind CSS v4.
-Every screen is designed and wired with sample data. **No business logic, database or auth is implemented** — that's the logic layer to be written next (see "Connecting your logic" below).
+**Famous TechX POS** is a point-of-sale and back-office system for a business with several employees, tills and branches.
 
-## Run it
+| Part | Folder | Stack |
+|---|---|---|
+| Website (POS + back office) | `/` | React 19, TypeScript, Vite, Tailwind CSS v4 |
+| API server | `server/` | Node.js, Express, TypeScript, WebSocket |
+| Database | TiDB Cloud | MySQL-compatible, set up by `npm run migrate` |
+| Email | any SMTP | Gmail, Zoho, … for invites and password resets |
+
+The website has two modes:
+- **Demo mode:** when `VITE_API_URL` is empty, the app runs on sample data. Any PIN works on the till except `0000`, which simulates a wrong PIN.
+- **Live mode:** when `VITE_API_URL` points to the server, everything is saved in TiDB and the server enforces every permission.
+
+---
+
+## 1. Try it in 2 minutes (no database needed)
 
 ```bash
+# terminal 1 — the API on a throw-away in-memory database
+cd server && npm install && npm run dev:memory
+
+# terminal 2 — the website
 npm install
-npm run dev        # http://localhost:5173
-npm run typecheck  # TypeScript check
-npm run build
+cp .env.example .env        # VITE_API_URL=/api
+npm run dev                 # open http://localhost:5173/onboarding
 ```
 
-Start at `/login`, `/dashboard` or the till at `/pos/lock` (any 4-digit PIN works except `0000`, which simulates a wrong PIN).
+Create the owner account and business, add a product, register this computer as a till (**Settings → Tills**) and open the POS. Invite emails are printed in terminal 1.
 
-## Screens
+## 2. Go live
 
-| Area | Routes |
+`VITE_API_URL` is **baked into the bundle at build time**. If it is empty, the app silently runs on sample data. `npm run build` now refuses to produce that bundle unless you set `ALLOW_DEMO_BUILD=1` deliberately.
+
+1. **Database:** create a TiDB Cloud Serverless cluster, put its connection string in `server/.env` as `DATABASE_URL`, and run `cd server && npm run migrate`. The `famous_pos` database and tables are created for you. Ensure the cluster has automated backups/PITR enabled before taking real payments. See [server/README.md](server/README.md#1-set-up-tidb-cloud-about-5-minutes).
+2. **Email:** add `SMTP_HOST`, `SMTP_PORT` (465 for Gmail/Zoho app passwords), `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM` to `server/.env`. Without SMTP the app still works — invite links are shown on screen for you to share manually.
+3. **API server:** deploy `server/` to Render using the included `render.yaml` blueprint, or to Railway with `server/railway.json`. Set these variables on the host (secrets are never committed):
+   - `DATABASE_URL` — the TiDB connection string
+   - `APP_URL` — the **public website address** (required in production; invite/reset links and CORS depend on it)
+   - `CORS_ORIGINS` — extra origins if you use both a custom domain and an `onrender.com` URL
+   - `NODE_ENV=production` (set in `render.yaml`; set it manually on Railway)
+   - SMTP values above
+4. **Website:** copy `.env.production.example` to `.env.production` and set `VITE_API_URL` to the **full public API origin** (for example `https://famous-techx-pos-api.onrender.com`). Do **not** use `/api` in production unless your host proxies both `/api` and `/ws`. Run `npm run build` and host `dist/`. The Render blueprint includes a static site with a rewrite of all paths to `index.html`; if you host elsewhere (Netlify, Vercel, …), add the same SPA rewrite.
+5. **Verify before opening the tills:**
+   - `curl https://<your-api>/health` returns `{"ok":true,...}`.
+   - Sign in at the website, add a product, then register a till in **Settings → Tills** and sell something. Confirm the sale appears in **Sales** after a full page reload — that proves data is coming from the database, not sample data.
+   - Open the site over HTTPS; browsers only allow camera scanning on HTTPS (or localhost). Phone scanning also needs the full API origin above.
+   - Check the server logs for `APP_URL` / `DATABASE_URL` startup errors.
+
+## 3. Everyday commands
+
+```bash
+npm run dev          # website on http://localhost:5173 (API proxied from /api → localhost:8080)
+npm run dev:https    # same, over HTTPS on your Wi-Fi, so phones can use their camera as a scanner
+npm run typecheck    # TypeScript check
+npm run build        # production build in dist/ (requires VITE_API_URL; ALLOW_DEMO_BUILD=1 for a demo bundle)
+
+cd server
+npm run dev          # API with auto-reload (uses server/.env → TiDB)
+npm test             # end-to-end API tests
+```
+
+## 4. Barcode scanning
+
+Every screen that uses scans (POS, Products, Inventory, Transfers, Purchase orders) accepts all of these sources at the same time:
+
+| Source | Setup |
 |---|---|
-| Auth & onboarding | `/login`, `/forgot-password`, `/accept-invite`, `/onboarding` |
-| **POS till** (full screen) | `/pos/lock` (employee tiles + PIN, create PIN), `/pos/open-shift`, `/pos` (sell), `/pos/close-shift` (cash count / Z report) |
-| POS modals | Payment (split tender, MoMo ref, change), manager approval (PIN), discount, line edit / price override, customer, hold cart, held carts, cash in/out/drop/no-sale, X report, receipt |
-| Dashboard | `/dashboard` (incl. "On shift now") |
-| Sales | `/sales`, `/sales/:id` (reprint, refund, void) |
-| Catalogue & stock | `/products`, `/inventory` (levels, movements, transfers, adjust), `/suppliers`, `/purchases`, `/purchases/:id` |
-| Customers | `/customers`, `/customers/:id` |
-| **Team (multi-employee)** | `/employees`, `/employees/:id` (profile, role & permission overrides, branch access, activity, performance, sign-in history, security), `/roles` (edit + compare matrix), `/shifts`, `/activity` |
-| Money | `/expenses`, `/reports` |
-| Business | `/branches`, `/settings` (business, receipts & tax, POS & security, tills, ownership), `/notifications`, `/profile`, `/platform` |
-| States | `/unauthorized`, any unknown URL → 404 |
+| **USB scanner** | Plug it in. It types like a keyboard, and the app recognises the fast input. |
+| **Bluetooth scanner** | Pair it with the computer or tablet in system Bluetooth settings (keyboard/HID mode). Then just scan. |
+| **This device's camera** | Click **Scan → Use this device's camera**. This uses the browser's built-in scanner where available, and falls back to ZXing on iPhone, Safari and Firefox. |
+| **Your phone over Wi-Fi or the internet** | Click **Scan → Use my phone as a scanner** and scan the QR code with your phone. Each barcode the phone scans appears on the computer instantly through the server's WebSocket relay. You don't need to install an app. |
 
-**Review loading / empty / error states:** add `?demo=loading`, `?demo=empty` or `?demo=error` to any URL.
+- **Adding a product:** a scanned barcode is checked against your catalogue first. If the item exists, the form offers to *receive stock* instead of creating a duplicate. If it doesn't, the barcode is looked up online (UPCitemdb, then Open Food Facts), and the name, brand, description, photo and category are filled in for you.
+- **Inventory:** **Scan stock in** adds 1 for each scan. **Stock count** scans the shelf and sets the true quantities.
 
-## Project structure
+Cameras only work on **HTTPS** or `localhost`. To test with a phone on your local network, run `npm run dev:https`, then enter `https://<your-computer-ip>:5173` in the pairing window.
+
+## 5. How employees work
+
+- **Separate logins:** every employee has their own account, created by email invite or with a temporary password. Staff without email sign in with their phone number.
+- **Tills:** a till is a device the owner registers. Staff unlock it by tapping their name and entering a 4-digit PIN. They set the PIN themselves the first time, after confirming their password.
+- **PIN limits:** a PIN only opens the POS. The back office always needs a full password; the server checks how the user signed in, and a PIN sign-in only works on its own till.
+- **Manager approval:** discounts above a limit, refunds, voids, price changes, opening the drawer without a sale, cash drops, taking over someone else's held cart and cash variances above the threshold all need a manager to enter their PIN on the till. Each approval is single-use and logged with both names.
+- **Shifts:** a shift has an opening float, cash in and out, an X report during the shift, and a Z report at close with a count by cedi denomination and the difference from expected cash.
+- **Activity log:** every sale, refund, approval, stock change, PIN lockout and permission change is recorded.
+
+## 6. Project structure
 
 ```
 src/
-  app/session.tsx        UI session: signed-in user, branch, terminal, POS user, shift flag, can()
-  services/api.ts        ⟵ LOGIC SEAM: all data hooks (use…) and actions.* live here
-  mock/data.ts           design-time sample data (delete when real data is wired)
-  types/index.ts         domain types mirroring the SRS tables
-  lib/format.ts          money/date formatting (GHS, Africa/Accra), cn()
-  components/ui/         design system: Button, Form, Display, Overlay, Table, Toast, Charts, PinPad
-  components/layout/     AppLayout (sidebar, branch switcher, user menu)
-  features/<module>/     one folder per module (pos, employees, sales, …)
+  app/session.tsx          who is signed in, business, permissions, branch, till, PIN user, shift
+  lib/http.ts              API client (session + till credentials, errors, demo switch)
+  lib/errors.ts            AppError — messages that are safe to show staff
+  lib/query.ts             small cache: dedupes requests, refetches after changes, clears on sign-out
+  services/api/            the data layer screens use
+    queries.ts             use…() read hooks
+    actions.ts             actions.* writes, one API call each
+    demo.ts                sample-data mode
+  features/scanner/        scanner provider, camera scanner, phone pairing (/scan/:session)
+  features/<module>/       screens (pos, products, inventory, employees, sales, …)
+  components/ui/           design system
+  mock/data.ts             demo data
+server/                    API server — architecture, security model and endpoints in server/README.md
 ```
 
-## Connecting your logic
+## 7. Notes and limits
 
-1. **`src/services/api.ts`** — replace each `useX()` hook body with a Supabase query and each `actions.x()` with your RPC / Edge Function call. Keep the signatures; screens won't need changes. Every place that expects logic is marked with a `// LOGIC` comment (`grep -rn "LOGIC" src`).
-2. **`src/app/session.tsx`** — hydrate the user, role, branch access and registered terminal from Supabase. `can(permission)` is for showing/hiding UI only; enforce in RLS and server functions.
-3. **Money** — the cart and shift screens do simple arithmetic for display. Recompute totals decimal-safely in your checkout logic (SRS §5.2).
-4. **Route guards** — wrap back-office routes in an auth guard and POS routes in a terminal guard (see the comment in `App.tsx`).
-5. Remove `src/mock/` and the "Design preview · sample data" badge in `AppLayout` when real data is connected.
-
-## Design tokens
-
-Defined in `src/index.css` (`@theme`): `brand-*` (TechX blue), `ink-*` (neutrals), amber accent for the POS / primary CTAs, emerald for money-in, rose for destructive actions. Font: Inter. Numbers use `num` (tabular figures). Receipts print at 80 mm via `.print-area`.
+- **Payments:** Mobile Money, card and bank payments are *recorded manually*. They're not verified with Paystack, Hubtel or MTN MoMo until those integrations and credentials are added.
+- **Offline:** offline selling is not supported. Checkout needs a connection, and a retry never double-charges.
+- **Tax:** set your tax rate in **Settings → Receipts & tax**, and check current GRA rates yourself.

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { LuArrowLeft, LuPlus, LuUsers } from "react-icons/lu";
 import { actions, useCustomers, useSales } from "@/services/api";
@@ -7,6 +7,7 @@ import {
   Textarea, useToast,
 } from "@/components/ui";
 import { formatDateTime, formatMoney, timeAgo } from "@/lib/format";
+import type { Customer } from "@/types";
 import { SaleStatusBadge } from "@/features/sales/SalesPages";
 
 export function CustomersPage() {
@@ -43,16 +44,24 @@ export function CustomersPage() {
   );
 }
 
-function CustomerDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function CustomerDrawer({ open, onClose, customer }: { open: boolean; onClose: () => void; customer?: Customer | null }) {
   const toast = useToast();
+  const [f, setF] = useState({ name: "", phone: "", email: "", address: "", notes: "" });
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) setF({ name: customer?.name ?? "", phone: customer?.phone ?? "", email: customer?.email ?? "", address: customer?.address ?? "", notes: customer?.notes ?? "" }); }, [open, customer]);
   return (
-    <Drawer open={open} onClose={onClose} title="Add customer" footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={async () => { await actions.saveCustomer({}); toast({ tone: "success", title: "Customer saved" }); onClose(); }}>Save</Button></>}>
+    <Drawer open={open} onClose={onClose} title={customer ? "Edit customer" : "Add customer"} footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button loading={busy} disabled={f.name.trim().length < 2 || f.phone.trim().length < 9} onClick={async () => {
+      setBusy(true);
+      try { await actions.saveCustomer({ id: customer?.id, ...f }); toast({ tone: "success", title: "Customer saved" }); onClose(); }
+      catch (e) { toast({ tone: "error", title: "Couldn't save", body: (e as Error).message }); }
+      finally { setBusy(false); }
+    }}>Save</Button></>}>
       <div className="space-y-4">
-        <Input label="Full name" required autoFocus />
-        <Input label="Phone" required inputMode="tel" />
-        <Input label="Email" type="email" />
-        <Input label="Address" />
-        <Textarea label="Notes" rows={2} />
+        <Input label="Full name" required autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+        <Input label="Phone" required inputMode="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+        <Input label="Email" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
+        <Input label="Address" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} />
+        <Textarea label="Notes" rows={2} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} />
       </div>
     </Drawer>
   );
@@ -63,11 +72,13 @@ export function CustomerDetailPage() {
   const c = useCustomers().data.find((x) => x.id === id);
   const sales = useSales().data.filter((s) => s.customerId === id);
   const navigate = useNavigate();
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
   if (!c) return <EmptyState title="Customer not found" action={<Link to="/customers" className="text-sm text-brand-700">Back</Link>} />;
   return (
     <>
       <Link to="/customers" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-900"><LuArrowLeft className="size-4" /> Customers</Link>
-      <PageHeader title={c.name} description={c.phone} actions={<><Button variant="secondary">Edit</Button><Button variant="ghost">Archive</Button></>} />
+      <PageHeader title={c.name} description={c.phone} actions={<><Button variant="secondary" onClick={() => setEditing(true)}>Edit</Button><Button variant="ghost" onClick={async () => { await actions.archiveCustomer(c.id); toast({ tone: "success", title: "Customer archived" }); navigate("/customers"); }}>Archive</Button></>} />
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <StatCard label="Total spend" value={formatMoney(c.totalSpend)} />
         <StatCard label="Visits" value={c.visits} />
@@ -85,10 +96,11 @@ export function CustomerDetailPage() {
                 { key: "s", header: "Status", cell: (s) => <SaleStatusBadge status={s.status} /> },
                 { key: "t", header: "Total", align: "right", cell: (s) => formatMoney(s.total) },
               ]} />
-            ) : <EmptyState title="No purchases in this period" className="py-8" />}
+            ) : <EmptyState title="No purchases at this branch yet" className="py-8" />}
           </div>
         </Card>
       </div>
+      <CustomerDrawer open={editing} onClose={() => setEditing(false)} customer={c} />
     </>
   );
 }

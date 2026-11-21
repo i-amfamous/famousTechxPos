@@ -16,6 +16,7 @@ const icons: Record<AppNotification["type"], [ReactNode, string]> = {
 
 export function NotificationsPage() {
   const q = useNotifications();
+
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [readIds, setReadIds] = useState<string[]>([]);
   const isRead = (n: AppNotification) => n.read || readIds.includes(n.id);
@@ -24,7 +25,7 @@ export function NotificationsPage() {
     <>
       <PageHeader
         title="Notifications"
-        actions={<><Segmented value={filter} onChange={setFilter} options={[{ value: "all", label: "All" }, { value: "unread", label: "Unread" }]} /><Button variant="secondary" icon={<LuCheckCheck className="size-4" />} onClick={async () => { await actions.markNotificationsRead(q.data.map((n) => n.id)); setReadIds(q.data.map((n) => n.id)); }}>Mark all read</Button></>}
+        actions={<><Segmented value={filter} onChange={setFilter} options={[{ value: "all", label: "All" }, { value: "unread", label: "Unread" }]} /><Button variant="secondary" icon={<LuCheckCheck className="size-4" />} onClick={async () => { await actions.markNotificationsRead(); setReadIds(q.data.map((n) => n.id)); }}>Mark all read</Button></>}
       />
       <Card padded={false} className="max-w-3xl">
         <DataState query={{ ...q, data: rows }} empty={<EmptyState icon={<LuBell className="size-7" />} title={filter === "unread" ? "You're all caught up" : "No notifications"} />}>
@@ -32,7 +33,7 @@ export function NotificationsPage() {
             <ul className="divide-y divide-ink-100">
               {data.map((n) => (
                 <li key={n.id}>
-                  <button onClick={() => setReadIds((r) => [...r, n.id])} className={cn("flex w-full gap-4 px-5 py-4 text-left hover:bg-ink-50", !isRead(n) && "bg-brand-50/40")}>
+                  <button onClick={() => { setReadIds((r) => [...r, n.id]); if (!n.read) void actions.markNotificationsRead([n.id]); }} className={cn("flex w-full gap-4 px-5 py-4 text-left hover:bg-ink-50", !isRead(n) && "bg-brand-50/40")}>
                     <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-full [&>svg]:size-4", icons[n.type][1])}>{icons[n.type][0]}</span>
                     <span className="flex-1">
                       <span className="block text-sm font-medium text-ink-900">{n.title}</span>

@@ -9,8 +9,10 @@ export function RolesPage() {
   const roles = useRoles().data;
   const perms = usePermissions().data;
   const toast = useToast();
+  const [busy, setBusy] = useState(false);
   const [view, setView] = useState<"edit" | "compare">("edit");
-  const [selId, setSelId] = useState(roles[2]?.id ?? roles[0]?.id);
+  const [selId, setSelId] = useState<string | undefined>(roles[2]?.id ?? roles[0]?.id);
+  useEffect(() => { if (!selId && roles.length) setSelId(roles.find((r) => r.key === "manager")?.id ?? roles[0]!.id); }, [roles, selId]);
   const [draft, setDraft] = useState<Role | null>(null);
   const [del, setDel] = useState(false);
   const modules = useMemo(() => [...new Set(perms.map((p) => p.module))], [perms]);
@@ -69,7 +71,7 @@ export function RolesPage() {
               {roles.map((r) => (
                 <li key={r.id}>
                   <button onClick={() => setSelId(r.id)} className={cn("flex w-full items-center gap-3 px-4 py-3 text-left", selId === r.id ? "bg-brand-50" : "hover:bg-ink-50")}>
-                    <span className={cn("flex size-9 items-center justify-center rounded-lg", selId === r.id ? "bg-brand-600 text-white" : "bg-ink-100 text-ink-500")}>{r.key === "owner" ? <LuLock className="size-4" /> : <LuShieldCheck className="size-4" />}</span>
+                    <span className={cn("flex size-9 items-center justify-center rounded-lg", selId === r.id ? "bg-gradient-to-br from-brand-500 to-violet-600 text-white" : "bg-ink-100 text-ink-500")}>{r.key === "owner" ? <LuLock className="size-4" /> : <LuShieldCheck className="size-4" />}</span>
                     <span className="flex-1">
                       <span className="block text-sm font-medium text-ink-900">{r.name}</span>
                       <span className="block text-xs text-ink-500">{r.memberCount} member{r.memberCount === 1 ? "" : "s"} · {r.isSystem ? "Default" : "Custom"}</span>
@@ -139,7 +141,12 @@ export function RolesPage() {
                   <div className="flex items-center gap-3">
                     {draft.memberCount > 0 && dirty && <span className="text-xs text-ink-500">Affects {draft.memberCount} employee{draft.memberCount > 1 && "s"}</span>}
                     <Button variant="secondary" disabled={!dirty} onClick={() => sel && setDraft(structuredClone(sel))}>Discard</Button>
-                    <Button disabled={!dirty && draft.id !== "new"} onClick={async () => { await actions.saveRole(draft); toast({ tone: "success", title: "Role saved", body: "Change recorded in the activity log." }); }}>Save role</Button>
+                    <Button loading={busy} disabled={(!dirty && draft.id !== "new") || draft.name.trim().length < 2} onClick={async () => {
+                      setBusy(true);
+                      try { const id = await actions.saveRole(draft); setSelId(id); toast({ tone: "success", title: "Role saved", body: "Change recorded in the activity log." }); }
+                      catch (e) { toast({ tone: "error", title: "Couldn't save role", body: (e as Error).message }); }
+                      finally { setBusy(false); }
+                    }}>Save role</Button>
                   </div>
                 </div>
               )}
@@ -147,7 +154,11 @@ export function RolesPage() {
           )}
         </div>
       )}
-      <ConfirmDialog open={del} onClose={() => setDel(false)} title={`Delete “${draft?.name}”?`} message={draft?.memberCount ? `Move its ${draft.memberCount} members to another role first.` : "This custom role will be removed."} confirmLabel="Delete role" onConfirm={() => {}} />
+      <ConfirmDialog open={del} onClose={() => setDel(false)} title={`Delete “${draft?.name}”?`} message={draft?.memberCount ? `Move its ${draft.memberCount} members to another role first.` : "This custom role will be removed."} confirmLabel="Delete role" onConfirm={async () => {
+        if (!draft) return;
+        try { await actions.deleteRole(draft.id); setSelId(roles.find((r) => r.key === "cashier")?.id ?? roles[0]?.id); toast({ tone: "success", title: "Role deleted" }); }
+        catch (e) { toast({ tone: "error", title: "Couldn't delete role", body: (e as Error).message }); }
+      }} />
     </>
   );
 }

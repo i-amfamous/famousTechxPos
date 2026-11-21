@@ -1,32 +1,17 @@
 import { cn, formatDateTime, formatMoney, methodLabel } from "@/lib/format";
-import type { PaymentLine } from "@/types";
+import type { SaleReceipt } from "@/types";
 
-export interface ReceiptData {
-  receiptNumber: string;
-  createdAt: string;
-  servedBy: string;
-  terminal: string;
-  branch: string;
-  customer?: string;
-  items: { name: string; quantity: number; unitPrice: number; discount: number }[];
-  subtotal: number;
-  discountTotal: number;
-  taxTotal: number;
-  total: number;
-  payments: PaymentLine[];
-  change?: number;
-  reprint?: boolean;
-}
+export type ReceiptData = SaleReceipt & { reprint?: boolean };
 
 /** 80mm thermal-style receipt. Wrap in `.print-area` to print just this. */
 export function Receipt({ data, className }: { data: ReceiptData; className?: string }) {
   return (
     <div className={cn("print-area mx-auto w-[300px] bg-white px-5 py-6 font-mono text-[12px] leading-relaxed text-ink-900 shadow-card ring-1 ring-ink-200", className)}>
       <div className="text-center">
-        <p className="text-sm font-bold tracking-wide">FAMOUS TECHX</p>
+        <p className="text-sm font-bold uppercase tracking-wide">{data.business?.name ?? "Famous TechX"}</p>
         <p>{data.branch}</p>
-        <p>Tel: 030 201 4455</p>
-        <p className="mt-1">TIN: C000XXXXXXX</p>
+        {data.business?.phone && <p>Tel: {data.business.phone}</p>}
+        {data.business?.tin && <p className="mt-1">TIN: {data.business.tin}</p>}
         {data.reprint && <p className="mt-2 border border-ink-900 py-0.5 font-bold">** REPRINT / COPY **</p>}
       </div>
       <Dash />
@@ -54,8 +39,7 @@ export function Receipt({ data, className }: { data: ReceiptData; className?: st
       ))}
       {!!data.change && <Row l="Change" r={formatMoney(data.change)} bold />}
       <Dash />
-      <p className="text-center">Thank you for shopping with us!</p>
-      <p className="text-center">Goods sold in good condition are not returnable after 7 days.</p>
+      <p className="text-center">{data.business?.footer || "Thank you for shopping with us!"}</p>
       <div className="mx-auto mt-3 h-8 w-48 bg-[repeating-linear-gradient(90deg,#101828_0_2px,transparent_2px_4px,#101828_4px_5px,transparent_5px_8px)]" aria-hidden />
       <p className="text-center text-[10px]">{data.receiptNumber}</p>
     </div>

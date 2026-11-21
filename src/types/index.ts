@@ -18,6 +18,7 @@ export type RoleKey =
 export interface Branch {
   id: ID;
   name: string;
+  code?: string;
   address: string;
   phone: string;
   status: "active" | "inactive";
@@ -95,16 +96,22 @@ export interface Product {
   status: "active" | "archived";
   stock: number;
   reorderLevel: number;
-  variants?: { id: ID; label: string; sku: string; stock: number }[];
+  variants?: { id: ID; label: string; sku: string; stock: number; barcode?: string }[];
+  brand?: string;
+  description?: string;
+  imageUrl?: string;
 }
 
 export interface CartLine {
   productId: ID;
+  variantId?: ID;
   name: string;
   sku: string;
   unitPrice: number;
   quantity: number;
   discount: number; // amount
+  /** Set when a cashier changed the price on the till (needs permission/approval). */
+  priceOverride?: boolean;
 }
 
 export type PaymentMethod = "cash" | "momo" | "card" | "bank";
@@ -127,12 +134,33 @@ export interface Sale {
   branchId: ID;
   customerId?: ID;
   status: SaleStatus;
-  items: { name: string; sku: string; quantity: number; unitPrice: number; discount: number }[];
+  items: { id?: ID; name: string; sku: string; quantity: number; unitPrice: number; discount: number; lineTotal?: number; refundedQuantity?: number }[];
   payments: PaymentLine[];
   subtotal: number;
   discountTotal: number;
   taxTotal: number;
   total: number;
+  changeDue?: number;
+  refundedTotal?: number;
+  receipt?: SaleReceipt;
+}
+
+/** Payload returned by checkout / sale_receipt RPC. */
+export interface SaleReceipt {
+  receiptNumber: string;
+  createdAt: string;
+  servedBy: string;
+  terminal: string;
+  branch: string;
+  customer?: string;
+  business?: { name: string; phone?: string; tin?: string; footer?: string };
+  items: { name: string; quantity: number; unitPrice: number; discount: number }[];
+  subtotal: number;
+  discountTotal: number;
+  taxTotal: number;
+  total: number;
+  payments: PaymentLine[];
+  change?: number;
 }
 
 export interface Customer {
@@ -163,6 +191,7 @@ export interface Shift {
   byMethod: Record<PaymentMethod, number>;
   approvedBy?: ID;
   note?: string;
+  variance?: number;
 }
 
 export interface CashMovement {
@@ -232,7 +261,7 @@ export interface PurchaseOrder {
   status: "draft" | "ordered" | "partially_received" | "received" | "cancelled";
   createdAt: string;
   expectedAt?: string;
-  lines: { productId: ID; quantity: number; received: number; unitCost: number }[];
+  lines: { id?: ID; productId: ID; quantity: number; received: number; unitCost: number }[];
 }
 
 export interface Expense {
@@ -255,4 +284,62 @@ export interface AppNotification {
   body: string;
   createdAt: string;
   read: boolean;
+}
+
+/** Member shown on a locked till (from terminal_roster). */
+export interface RosterMember {
+  id: ID;
+  fullName: string;
+  displayName: string;
+  avatarColor: string;
+  roleName: string;
+  hasPin: boolean;
+  status: EmployeeStatus;
+  pinLocked: boolean;
+  /** Carts parked by this employee on this till (from terminal_roster). */
+  heldCount?: number;
+}
+
+export interface ShiftSummary {
+  shift: Shift;
+  movements: CashMovement[];
+  refundsCash: number;
+}
+
+export interface DashboardSummary {
+  revenue: number;
+  prevRevenue: number;
+  salesCount: number;
+  prevSalesCount: number;
+  grossProfit: number;
+  expenses: number;
+  expenseCount: number;
+  changeGiven: number;
+  byMethod: { method: PaymentMethod; amount: number }[];
+  topProducts: { productId: ID; name: string; quantity: number; revenue: number }[];
+  trend: { label: string; value: number }[];
+  onShift: { shiftId: ID; memberId: ID; fullName: string; avatarColor: string; terminal: string; openedAt: string; salesTotal: number; salesCount: number }[];
+  lowStock: { id: ID; name: string; quantity: number; reorderLevel: number }[];
+}
+
+export interface EmployeeReportRow {
+  memberId: ID; fullName: string; avatarColor: string; salesCount: number; revenue: number; avgSale: number;
+  discounts: number; refunds: number; approvalsGiven: number; cashVariance: number; shifts: number;
+}
+
+export interface PnlReport {
+  grossSales: number; discounts: number; refunds: number; taxCollected: number; netRevenue: number; cogs: number;
+  grossProfit: number; operatingExpenses: number; salesCount: number;
+}
+
+export interface Transfer {
+  id: ID; number: string; fromBranchId: ID; toBranchId: ID; status: "dispatched" | "received" | "cancelled"; createdAt: string;
+  items: { productId: ID; quantity: number }[];
+}
+
+export interface BarcodeLookup {
+  found: boolean;
+  source: "catalogue" | "online" | "none";
+  product?: Product;
+  online?: { name: string; brand?: string; description?: string; category?: string; images: string[]; source: string };
 }

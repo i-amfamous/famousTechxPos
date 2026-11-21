@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LuCopy, LuEllipsisVertical, LuKeyRound, LuLogOut, LuMail, LuPencil, LuUserCheck, LuUserPlus, LuUserX, LuUsers,
@@ -11,9 +11,8 @@ import {
 } from "@/components/ui";
 import { timeAgo } from "@/lib/format";
 import type { Employee } from "@/types";
-import { PinBadge, StatusBadge } from "./shared";
+import { CopyField, PinBadge, StatusBadge, resendInvite } from "./shared";
 
-const SEATS = 10; // LOGIC: from subscription plan
 
 export function EmployeesPage() {
   const q = useEmployees();
@@ -21,6 +20,7 @@ export function EmployeesPage() {
   const branches = useBranches().data;
   const navigate = useNavigate();
   const toast = useToast();
+  const { seatLimit: SEATS, can } = useSession();
   const [tab, setTab] = useState<"all" | Employee["status"]>("all");
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("");
@@ -74,7 +74,7 @@ export function EmployeesPage() {
             trigger={(p) => <button {...p} aria-label={`Actions for ${e.fullName}`} className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><LuEllipsisVertical className="size-4" /></button>}
             items={[
               { label: "View & edit", icon: <LuPencil />, onClick: () => navigate(`/employees/${e.id}`) },
-              ...(e.status === "invited" ? [{ label: "Resend invite", icon: <LuMail />, onClick: () => toast({ tone: "success", title: "Invite resent", body: e.email }) }] : []),
+              ...(e.status === "invited" ? [{ label: "Resend invite", icon: <LuMail />, onClick: () => resendInvite(e.id, e.email, toast) }] : []),
               { label: "Reset POS PIN", icon: <LuKeyRound />, onClick: () => setConfirm({ e, kind: "pin" }), disabled: e.status === "deactivated" },
               { label: "Sign out everywhere", icon: <LuLogOut />, onClick: () => setConfirm({ e, kind: "signout" }), disabled: e.status !== "active" },
               "divider",
@@ -102,7 +102,7 @@ export function EmployeesPage() {
       <PageHeader
         title="Employees"
         description="Everyone who can sign in to your business. Each person has their own login and POS PIN."
-        actions={<Button icon={<LuUserPlus className="size-4" />} onClick={() => setAdding(true)} disabled={seatsUsed >= SEATS}>Add employee</Button>}
+        actions={can("employees.manage") && <Button icon={<LuUserPlus className="size-4" />} onClick={() => setAdding(true)} disabled={seatsUsed >= SEATS}>Add employee</Button>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl bg-white px-4 py-3 text-sm shadow-card ring-1 ring-ink-200/70">
@@ -163,10 +163,14 @@ export function EmployeesPage() {
           requireReason={confirmCopy.reason}
           onConfirm={async (reason) => {
             const e = confirm.e;
-            if (confirm.kind === "pin") await actions.resetPin(e.id);
-            else if (confirm.kind === "signout") await actions.forceSignOut(e.id);
-            else await actions.setEmployeeStatus(e.id, confirm.kind === "reactivate" ? "active" : confirm.kind === "suspend" ? "suspended" : "deactivated", reason);
-            toast({ tone: "success", title: `${confirmCopy.label}: ${e.fullName}` });
+            try {
+              if (confirm.kind === "pin") await actions.resetPin(e.id);
+              else if (confirm.kind === "signout") await actions.employeeAdmin("sign_out", e.id);
+              else await actions.employeeAdmin("set_status", e.id, { status: confirm.kind === "reactivate" ? "active" : confirm.kind === "suspend" ? "suspended" : "deactivated", reason });
+              toast({ tone: "success", title: `${confirmCopy.label}: ${e.fullName}` });
+            } catch (er) {
+              toast({ tone: "error", title: "Couldn't complete that", body: (er as Error).message });
+            }
           }}
         />
       )}
@@ -179,25 +183,34 @@ export function AddEmployeeDrawer({ open, onClose }: { open: boolean; onClose: (
   const roles = useRoles().data.filter((r) => r.key !== "owner");
   const branches = useBranches().data.filter((b) => b.status === "active");
   const toast = useToast();
-  const { can } = useSession();
+  const { can, branch } = useSession();
   const [method, setMethod] = useState<"email" | "temp_password">("email");
-  const [roleId, setRoleId] = useState("r_cashier");
-  const [selBranches, setSelBranches] = useState<string[]>(["br1"]);
+  const [roleId, setRoleId] = useState("");
+  const [selBranches, setSelBranches] = useState<string[]>([]);
   const [name, setName] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [code, setCode] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [hireDate, setHireDate] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ name: string; tempPassword?: string; inviteLink?: string } | null>(null);
+  useEffect(() => {
+    if (open) {
+      setRoleId(roles.find((r) => r.key === "cashier")?.id ?? roles[0]?.id ?? "");
+      setSelBranches(branch.id ? [branch.id] : []);
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const role = roles.find((r) => r.id === roleId);
-  const tempPassword = "Ftx-48Kq-2m"; // LOGIC: generated server-side
 
   const errors = {
     name: name && name.trim().length < 3 ? "Enter the full name" : undefined,
-    email: method === "email" && email && !/^\S+@\S+\.\S+$/.test(email) ? "Enter a valid email" : undefined,
+    email: email && !/^\S+@\S+\.\S+$/.test(email) ? "Enter a valid email" : undefined,
   };
-  const valid = name.trim().length >= 3 && phone.trim().length >= 9 && selBranches.length > 0 && (method === "temp_password" || /^\S+@\S+\.\S+$/.test(email));
+  const valid = name.trim().length >= 3 && phone.replace(/\D/g, "").length >= 9 && selBranches.length > 0 && !!roleId && (method === "temp_password" ? !errors.email : /^\S+@\S+\.\S+$/.test(email));
 
-  const close = () => { setCreated(null); setName(""); setEmail(""); setPhone(""); onClose(); };
+  const close = () => { setCreated(null); setName(""); setDisplayName(""); setCode(""); setEmail(""); setPhone(""); setError(null); onClose(); };
 
   return (
     <Drawer
@@ -215,11 +228,17 @@ export function AddEmployeeDrawer({ open, onClose }: { open: boolean; onClose: (
               disabled={!valid}
               loading={busy}
               onClick={async () => {
-                setBusy(true);
-                await actions.createEmployee({ fullName: name, email, phone, roleId, branchIds: selBranches, inviteMethod: method }); // LOGIC
-                setBusy(false);
-                setCreated(name);
-                toast({ tone: "success", title: method === "email" ? "Invite sent" : "Employee created", body: name });
+                setBusy(true); setError(null);
+                try {
+                  const r = await actions.createEmployee({ fullName: name.trim(), displayName: displayName.trim() || undefined, phone, email: email.trim() || undefined, roleId,
+                    branchIds: selBranches, inviteMethod: method, hireDate, employeeCode: code.trim() || undefined });
+                  setCreated({ name, tempPassword: r.tempPassword, inviteLink: r.inviteLink });
+                  toast({ tone: "success", title: method === "email" ? (r.inviteLink ? "Employee added" : "Invite sent") : "Employee created", body: name });
+                } catch (e) {
+                  setError((e as Error).message);
+                } finally {
+                  setBusy(false);
+                }
               }}
             >
               {method === "email" ? "Send invite" : "Create account"}
@@ -230,14 +249,19 @@ export function AddEmployeeDrawer({ open, onClose }: { open: boolean; onClose: (
     >
       {created ? (
         <div className="space-y-4">
-          {method === "email" ? (
-            <Callout tone="success" title={`Invite sent to ${email}`}>{created} will appear as “Invited” until they accept and set a password.</Callout>
+          {method === "email" && created.inviteLink ? (
+            <>
+              <Callout tone="warning" title="Email isn't set up on the server">Send {created.name} this invite link yourself (WhatsApp, SMS…). It works once and expires in 7 days.</Callout>
+              <CopyField value={created.inviteLink} label="Copy invite link" />
+            </>
+          ) : method === "email" ? (
+            <Callout tone="success" title={`Invite sent to ${email}`}>{created.name} will appear as “Invited” until they accept and set a password.</Callout>
           ) : (
             <>
-              <Callout tone="success" title={`${created} can sign in now`}>Give them these details privately. They must change the password the first time they sign in.</Callout>
+              <Callout tone="success" title={`${created.name} can sign in now`}>Give them these details privately. They must change the password the first time they sign in.</Callout>
               <div className="space-y-2 rounded-xl bg-ink-50 p-4 font-mono text-sm ring-1 ring-ink-200">
-                <div className="flex justify-between"><span className="text-ink-500">Phone / username</span><span>{phone}</span></div>
-                <div className="flex items-center justify-between"><span className="text-ink-500">Temporary password</span><span className="flex items-center gap-2">{tempPassword}<button aria-label="Copy password" className="text-ink-400 hover:text-ink-800" onClick={() => navigator.clipboard?.writeText(tempPassword)}><LuCopy className="size-4" /></button></span></div>
+                <div className="flex justify-between"><span className="text-ink-500">Sign in with</span><span>{email || phone}</span></div>
+                <div className="flex items-center justify-between"><span className="text-ink-500">Temporary password</span><span className="flex items-center gap-2">{created.tempPassword}<button aria-label="Copy password" className="text-ink-400 hover:text-ink-800" onClick={() => navigator.clipboard?.writeText(created.tempPassword ?? "")}><LuCopy className="size-4" /></button></span></div>
               </div>
               <p className="text-xs text-ink-500">This password is shown once. You can issue a new one from their profile.</p>
             </>
@@ -245,11 +269,12 @@ export function AddEmployeeDrawer({ open, onClose }: { open: boolean; onClose: (
         </div>
       ) : (
         <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+          {error && <Callout tone="danger">{error}</Callout>}
           <section className="space-y-4">
             <Input label="Full name" required value={name} onChange={(e) => setName(e.target.value)} error={errors.name} autoFocus />
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Name on receipts" placeholder={name.split(" ")[0] || "e.g. Kofi"} hint="“Served by …”" />
-              <Input label="Employee code" defaultValue="FTX-010" hint="Auto-generated" />
+              <Input label="Name on receipts" placeholder={name.split(" ")[0] || "e.g. Kofi"} value={displayName} onChange={(e) => setDisplayName(e.target.value)} hint="“Served by …”" />
+              <Input label="Employee code" placeholder="Auto" value={code} onChange={(e) => setCode(e.target.value)} hint="Leave empty to auto-number" />
             </div>
             <Input label="Phone" required inputMode="tel" placeholder="024 000 0000" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </section>
@@ -261,7 +286,7 @@ export function AddEmployeeDrawer({ open, onClose }: { open: boolean; onClose: (
               <Input label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} hint="They'll get a link to set their own password." />
             ) : (
               <>
-                <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} hint="Optional — for staff without email, they sign in with their phone." />
+                <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} hint="Optional — staff without email sign in with their phone number." />
                 <Callout tone="info">You'll see a temporary password once. They must change it at first sign-in.</Callout>
               </>
             )}
@@ -296,11 +321,10 @@ export function AddEmployeeDrawer({ open, onClose }: { open: boolean; onClose: (
           </section>
 
           <section className="border-t border-ink-100 pt-5">
-            <Input label="Start date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+            <Input label="Start date" type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} />
           </section>
         </form>
       )}
     </Drawer>
   );
 }
-

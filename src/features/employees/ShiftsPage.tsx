@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { LuClock, LuPrinter, LuShieldCheck } from "react-icons/lu";
-import { useCashMovements, useEmployees, useShifts, useTerminals } from "@/services/api";
+import { useEmployees, useShiftSummary, useShifts, useTerminals } from "@/services/api";
 import {
   Avatar, Badge, Button, Card, DataState, DataTable, DL, Drawer, EmptyState, FilterBar, PageHeader, Select, StatCard, Tabs, type Column,
 } from "@/components/ui";
@@ -22,7 +22,8 @@ export function ShiftsPage() {
   const [open, setOpen] = useState<Shift | null>(null);
   const emp_ = (id: string) => employees.find((e) => e.id === id);
   const till = (id: string) => terminals.find((t) => t.id === id)?.name ?? "—";
-  const rows = q.data.filter((s) => s.status === tab && (!emp || s.employeeId === emp));
+  const [days, setDays] = useState("7");
+  const rows = q.data.filter((s) => s.status === tab && (!emp || s.employeeId === emp) && (tab === "open" || Date.now() - new Date(s.openedAt).getTime() < Number(days) * 864e5));
   const openShifts = q.data.filter((s) => s.status === "open");
 
   const cols: Column<Shift>[] = [
@@ -42,7 +43,11 @@ export function ShiftsPage() {
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <StatCard label="Open shifts now" value={openShifts.length} icon={<LuClock className="size-4" />} hint={openShifts.map((s) => emp_(s.employeeId)?.displayName).join(", ")} />
         <StatCard label="Cash expected in drawers" value={formatMoney(openShifts.reduce((a, s) => a + s.expectedCash, 0))} />
-        <StatCard label="Variance (last 7 days)" value={<span className="text-rose-600">−{formatMoney(15)}</span>} hint="1 shift needed approval" />
+        {(() => {
+          const week = q.data.filter((s) => s.status === "closed" && s.closedAt && Date.now() - new Date(s.closedAt).getTime() < 7 * 864e5);
+          const v = week.reduce((a, s) => a + (s.countedCash ?? 0) - s.expectedCash, 0);
+          return <StatCard label="Variance (last 7 days)" value={<span className={v < 0 ? "text-rose-600" : v > 0 ? "text-emerald-700" : ""}>{v > 0 ? "+" : v < 0 ? "−" : ""}{formatMoney(Math.abs(v))}</span>} hint={`${week.filter((s) => s.approvedBy).length} shift(s) needed approval`} />;
+        })()}
       </div>
       <Card padded={false}>
         <Tabs className="px-4" value={tab} onChange={setTab} tabs={[{ value: "open", label: "Open", count: openShifts.length }, { value: "closed", label: "Closed" }]} />
@@ -51,7 +56,7 @@ export function ShiftsPage() {
             <option value="">All employees</option>
             {employees.map((e) => <option key={e.id} value={e.id}>{e.fullName}</option>)}
           </Select>
-          <Select aria-label="Period" className="sm:w-44" defaultValue="7"><option value="1">Today</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></Select>
+          <Select aria-label="Period" className="sm:w-44" value={days} onChange={(e) => setDays(e.target.value)}><option value="1">Today</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></Select>
         </FilterBar>
         <DataState query={{ ...q, data: rows }} empty={<EmptyState icon={<LuClock className="size-7" />} title={tab === "open" ? "No open shifts" : "No closed shifts in this period"} description="Shifts are opened from the POS lock screen." />}>
           {(data) => <DataTable columns={cols} rows={data} rowKey={(s) => s.id} onRowClick={setOpen} />}
@@ -64,7 +69,7 @@ export function ShiftsPage() {
 
 function ShiftDrawer({ shift, onClose }: { shift: Shift | null; onClose: () => void }) {
   const employees = useEmployees().data;
-  const moves = useCashMovements().data.filter((m) => m.shiftId === shift?.id);
+  const moves = useShiftSummary(shift?.id ?? null).data?.movements ?? [];
   const name = (id?: string) => employees.find((e) => e.id === id)?.fullName ?? "—";
   return (
     <Drawer

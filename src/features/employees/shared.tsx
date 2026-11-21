@@ -1,8 +1,9 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
-  LuBadgePercent, LuBoxes, LuCoins, LuKeyRound, LuReceipt, LuSettings, LuShieldCheck, LuUndo2, LuUserCog,
+  LuBadgePercent, LuBoxes, LuCheck, LuCopy, LuCoins, LuKeyRound, LuReceipt, LuSettings, LuShieldCheck, LuUndo2, LuUserCog,
 } from "react-icons/lu";
-import { Badge, type Tone } from "@/components/ui";
+import { Badge, useToast, type Tone } from "@/components/ui";
+import { actions } from "@/services/api";
 import type { ActivityEvent, Employee } from "@/types";
 
 export const statusTone: Record<Employee["status"], Tone> = { active: "success", invited: "info", suspended: "warning", deactivated: "neutral" };
@@ -33,3 +34,30 @@ export const activityCategoryLabel: Record<ActivityEvent["category"], string> = 
   auth: "Sign-in", sale: "Sales", refund: "Refunds", discount: "Discounts", approval: "Approvals", stock: "Stock", cash: "Cash drawer", employee: "Team", settings: "Settings",
 };
 
+
+/** A read-only value (link, password) with a copy button. */
+export function CopyField({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-ink-50 p-3 ring-1 ring-ink-200">
+      <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-700" title={value}>{value}</span>
+      <button aria-label={label} className="rounded-lg p-1.5 text-ink-500 hover:bg-white hover:text-ink-900"
+        onClick={async () => { await navigator.clipboard?.writeText(value).catch(() => null); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
+        {copied ? <LuCheck className="size-4 text-emerald-600" /> : <LuCopy className="size-4" />}
+      </button>
+    </div>
+  );
+}
+
+/** Resends an invite; when the server can't email, copies the link so the manager can share it. */
+export async function resendInvite(memberId: string, email: string | undefined, toast: ReturnType<typeof useToast>) {
+  try {
+    const r = await actions.employeeAdmin("resend_invite", memberId);
+    if (r.inviteLink) {
+      await navigator.clipboard?.writeText(r.inviteLink).catch(() => null);
+      toast({ tone: "info", title: "Invite link copied", body: "Email isn't set up on the server — paste the link to the employee yourself." });
+    } else toast({ tone: "success", title: "Invite resent", body: email });
+  } catch (er) {
+    toast({ tone: "error", title: (er as Error).message });
+  }
+}
