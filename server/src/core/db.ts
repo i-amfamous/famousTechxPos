@@ -40,7 +40,12 @@ export async function createMysqlDb(url: string, ssl: boolean): Promise<Db> {
     timezone: "Z",
     supportBigNumbers: true,
   });
-  pool.on("connection", (c) => { void c.query("SET time_zone = '+00:00'").catch((e) => console.error("[db] time zone setup failed:", e)); });
+  // mysql2/promise's typings declare a promise connection here, but the event actually
+  // emits the callback connection — wrap it before using promise APIs.
+  pool.on("connection", (c) => {
+    const conn = c as unknown as { promise: () => { query: (sql: string) => Promise<unknown> } };
+    void conn.promise().query("SET time_zone = '+00:00'").catch((e: unknown) => console.error("[db] time zone setup failed:", e));
+  });
 
   const make = (conn: { query: (sql: string, params?: unknown[]) => Promise<unknown> }): Omit<Db, "tx" | "close"> => ({
     async all(sql, params = []) {
