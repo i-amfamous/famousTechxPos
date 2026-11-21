@@ -45,6 +45,8 @@ Without SMTP, nothing breaks: when you add an employee by email invite, the app 
 
 `APP_URL` is **required in production**: the server exits at startup without it so invite links and CORS can never silently point at `localhost`. Do not set the website's `VITE_API_URL` to `/api` in production unless your host proxies both `/api` and `/ws` to this server; use the full origin (for example `https://famous-techx-pos-api.onrender.com`). Enable backups/PITR on your TiDB cluster before going live, and verify `GET /health` after every deploy.
 
+**Build command:** use `npm ci --include=dev && npm run build` on the host. With `NODE_ENV=production`, a plain `npm ci` skips `typescript` and the `@types/*` packages, so `tsc` fails with TS7016 errors even though the runtime dependencies are fine.
+
 ---
 
 ## Architecture
