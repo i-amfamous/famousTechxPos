@@ -27,10 +27,13 @@ npm test             # 26 end-to-end tests, also on an in-memory database
 
 ## 2. Email (invites and password resets)
 
-Set the `SMTP_*` values in `.env`.
+Email is sent through **Brevo's SMTP relay**. In Brevo, open **SMTP & API → SMTP**, generate an **SMTP key**, and verify a **sender address**. Then set in `.env`:
 
-- **Gmail:** use `smtp.gmail.com`, port `465` and an **App Password** (Google Account → Security → 2-Step Verification → App passwords). Your normal password won't work.
-- **Zoho:** use `smtp.zoho.com` and port `465`.
+- `SMTP_HOST=smtp-relay.brevo.com`
+- `SMTP_PORT=587` (TLS; `465` also works)
+- `SMTP_USER` — the email you log into Brevo with
+- `SMTP_PASS` — the **SMTP key** (not the API key, not your Brevo password)
+- `MAIL_FROM` — a sender address/domain verified in Brevo, e.g. `"Famous TechX <no-reply@yourdomain.com>"`
 
 Without SMTP, nothing breaks: when you add an employee by email invite, the app shows the invite link for you to share yourself (for example on WhatsApp).
 

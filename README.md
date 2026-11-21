@@ -7,7 +7,7 @@
 | Website (POS + back office) | `/` | React 19, TypeScript, Vite, Tailwind CSS v4 |
 | API server | `server/` | Node.js, Express, TypeScript, WebSocket |
 | Database | TiDB Cloud | MySQL-compatible, set up by `npm run migrate` |
-| Email | any SMTP | Gmail, Zoho, … for invites and password resets |
+| Email | Brevo | SMTP relay for invites and password resets |
 
 The website has two modes:
 - **Demo mode:** when `VITE_API_URL` is empty, the app runs on sample data. Any PIN works on the till except `0000`, which simulates a wrong PIN.
@@ -34,7 +34,7 @@ Create the owner account and business, add a product, register this computer as 
 `VITE_API_URL` is **baked into the bundle at build time**. If it is empty, the app silently runs on sample data. `npm run build` now refuses to produce that bundle unless you set `ALLOW_DEMO_BUILD=1` deliberately.
 
 1. **Database:** create a TiDB Cloud Serverless cluster, put its connection string in `server/.env` as `DATABASE_URL`, and run `cd server && npm run migrate`. The `famous_pos` database and tables are created for you. Ensure the cluster has automated backups/PITR enabled before taking real payments. See [server/README.md](server/README.md#1-set-up-tidb-cloud-about-5-minutes).
-2. **Email:** add `SMTP_HOST`, `SMTP_PORT` (465 for Gmail/Zoho app passwords), `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM` to `server/.env`. Without SMTP the app still works — invite links are shown on screen for you to share manually.
+2. **Email (Brevo):** in Brevo go to **SMTP & API → SMTP**, generate an SMTP key and verify a sender address, then add to `server/.env`: `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USER` (your Brevo login email), `SMTP_PASS` (the SMTP key — not the API key) and `MAIL_FROM` (the verified sender, e.g. `Famous TechX <no-reply@yourdomain.com>`). Without SMTP the app still works — invite links are shown on screen for you to share manually.
 3. **API server:** deploy `server/` to Render using the included `render.yaml` blueprint, or to Railway with `server/railway.json`. Set these variables on the host (secrets are never committed):
    - `DATABASE_URL` — the TiDB connection string
    - `APP_URL` — the **public website address** (required in production; invite/reset links and CORS depend on it)

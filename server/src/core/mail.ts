@@ -1,4 +1,4 @@
-/** Outgoing email over SMTP (Gmail app password, Zoho, Brevo, …). */
+/** Outgoing email over Brevo's SMTP relay (configurable through SMTP_* env vars). */
 import { config } from "../config.js";
 
 export const mailConfigured = () => !!(config.smtp.host && config.smtp.user && config.smtp.pass);

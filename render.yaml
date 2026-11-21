@@ -24,7 +24,7 @@ services:
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
-        value: "465"
+        value: "587"         # Brevo SMTP relay (TLS)
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS
