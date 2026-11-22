@@ -130,7 +130,8 @@ export async function requestMomoPayment(req: MomoPaymentRequest): Promise<MomoP
         provider: "paystack", sent: true, reference: init.reference,
         message: `Paystack sent a ${req.network} prompt to ${normalizePhone(req.phone)}. Ask the customer to approve it on their phone.`,
       };
-    } catch {
+    } catch (e) {
+      console.error("[paystack] request failed:", e instanceof Error ? e.message : e);
       return pending("paystack", "Paystack couldn't send the prompt right now. Payment recorded as pending; follow up with the customer.");
     }
   }
