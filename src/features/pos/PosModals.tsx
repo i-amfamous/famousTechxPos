@@ -350,13 +350,16 @@ export function PaymentModal({
   const [tenders, setTenders] = useState<PaymentLine[]>([]);
   const [stage, setStage] = useState<"pay" | "processing" | "done" | "error">("pay");
   const [receipt, setReceipt] = useState<SaleReceipt | null>(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [printRun, setPrintRun] = useState(0);
   const [error, setError] = useState("");
   // The key belongs to the cart (owned by PosPage), so closing/reopening this modal can't create a second sale.
 
   useEffect(() => {
     if (open) {
       setTenders([]); setStage("pay"); setMethod("cash"); setAmount(""); setRef("");
-      setContactEmail(customer?.email ?? ""); setPayerEmail(""); setPaystackBusy(false); setReceipt(null); setError("");
+      setContactEmail(customer?.email ?? ""); setPayerEmail(""); setPaystackBusy(false); setReceipt(null);
+      setShowReceipt(false); setPrintRun(0); setError("");
     }
   }, [open, idempotencyKey]);
 
@@ -377,6 +380,8 @@ export function PaymentModal({
         cartDiscount, discountReason, discountApprovalId, priceApprovalId, idempotencyKey });
       setReceipt({ ...r, servedBy: r.servedBy || posUser?.displayName || "", terminal: r.terminal || terminal.name, branch: r.branch || branch.name, customer: r.customer ?? customer?.name,
         business: r.business ?? (business ? { name: business.name, phone: business.phone, tin: business.tin } : undefined) });
+      setShowReceipt(false);
+      setPrintRun(0);
       setStage("done");
     } catch (e) {
       setError((e as Error).message);
@@ -447,7 +452,7 @@ export function PaymentModal({
   return (
     <Modal open={open} onClose={stage === "processing" || paystackBusy ? () => {} : stage === "done" ? onComplete : onClose} size="lg" dismissible={stage !== "processing" && !paystackBusy} title={stage === "done" ? undefined : "Take payment"}>
       {stage === "done" && receipt ? (
-        <div className="grid justify-items-center gap-6 py-2 lg:grid-cols-[1fr_auto]">
+        <div className={cn("grid justify-items-center gap-6 py-2", showReceipt && "lg:grid-cols-[1fr_auto]")}>
           <div className="flex w-full flex-col items-center justify-center text-center">
             <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><LuCircleCheck className="size-9" /></div>
             <h2 className="mt-4 text-2xl font-semibold text-ink-900">Sale complete</h2>
@@ -464,22 +469,33 @@ export function PaymentModal({
               </div>
             )}
             <div className="mt-8 flex w-full max-w-xs flex-col gap-2">
-              <Button size="lg" icon={<LuPrinter className="size-5" />} onClick={() => window.print()}>Print receipt</Button>
-              <Button size="lg" variant="secondary" onClick={onComplete} autoFocus>New sale</Button>
+              {!showReceipt && (
+                <Button size="lg" icon={<LuPrinter className="size-5" />} onClick={() => { setShowReceipt(true); setPrintRun((n) => n + 1); }} autoFocus>
+                  Print receipt
+                </Button>
+              )}
+              <Button size="lg" variant="secondary" onClick={onComplete} autoFocus={!showReceipt}>New sale</Button>
             </div>
           </div>
-          <div className="receipt-printer" aria-label="Printing receipt">
-            <div className="printer-body print:hidden">
-              <span className="printer-led" />
-              <span className="printer-label">Famous TechX · Thermal printer</span>
-              <span className="printer-head" />
+          {showReceipt && (
+            <div className="flex w-full flex-col items-center gap-3">
+              <div key={printRun} className="receipt-printer" aria-label="Printing receipt">
+                <div className="printer-body print:hidden">
+                  <span className="printer-led" />
+                  <span className="printer-label">Famous TechX · Thermal printer</span>
+                  <span className="printer-head" />
+                </div>
+                <div className="printer-slot print:hidden" />
+                <div className="receipt-output">
+                  <Receipt data={receipt} className="print-area" />
+                  <div className="receipt-tear print:hidden" aria-hidden />
+                </div>
+              </div>
+              <Button size="sm" icon={<LuPrinter className="size-4" />} onClick={() => { setPrintRun((n) => n + 1); window.print(); }}>
+                Print
+              </Button>
             </div>
-            <div className="printer-slot print:hidden" />
-            <div className="receipt-output">
-              <Receipt data={receipt} className="print-area" />
-              <div className="receipt-tear print:hidden" aria-hidden />
-            </div>
-          </div>
+          )}
         </div>
       ) : stage === "error" ? (
         <div className="space-y-4 text-center">
@@ -494,7 +510,7 @@ export function PaymentModal({
           <div className="size-14 animate-spin rounded-full border-4 border-brand-100 border-t-brand-600" />
           <div>
             <h2 className="text-lg font-semibold text-ink-900">Completing your sale</h2>
-            <p className="mt-1 text-sm text-ink-500">Saving the payment and printing your receipt.</p>
+            <p className="mt-1 text-sm text-ink-500">Saving the payment and preparing your sale.</p>
           </div>
         </div>
       ) : (
