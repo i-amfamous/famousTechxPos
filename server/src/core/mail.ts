@@ -53,7 +53,7 @@ export async function verifyMail(): Promise<{ ok: boolean; message: string }> {
   } catch (e) {
     const err = e as { code?: string; message?: string };
     const hint = /EAUTH|535|authentication/i.test(`${err.code} ${err.message}`)
-      ? " The Brevo SMTP key is wrong — use the SMTP key from Brevo → SMTP & API → SMTP (starts with xsmtpsib-), not an API key or your login password."
+      ? " Brevo rejects the login when the SMTP key is wrong, or when your IP is not in Brevo → Security → Authorised IPs (run `npm run mail:check` to see the exact reason)."
       : "";
     return { ok: false, message: `${err.code ?? "SMTP_ERROR"}: ${err.message ?? "verification failed"}.${hint}` };
   }
