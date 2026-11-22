@@ -1,11 +1,11 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/format";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger" | "dangerGhost" | "success" | "outline" | "accent" | "onDark";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "dangerGhost" | "success" | "checkout" | "outline" | "accent" | "onDark";
 type Size = "sm" | "md" | "lg" | "xl";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-brand-600 text-white hover:bg-brand-700 shadow-sm disabled:bg-brand-300",
+  primary: "bg-gradient-to-br from-brand-600 to-brand-700 text-white shadow-sm hover:from-brand-500 hover:to-brand-600 hover:shadow-glow active:scale-[.98] disabled:from-brand-300 disabled:to-brand-300",
   secondary: "bg-white text-ink-700 ring-1 ring-inset ring-ink-200 hover:bg-ink-50 shadow-sm disabled:text-ink-400",
   outline: "bg-transparent text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50",
   ghost: "bg-transparent text-ink-600 hover:bg-ink-100 hover:text-ink-900",
@@ -13,7 +13,8 @@ const variants: Record<Variant, string> = {
   dangerGhost: "bg-transparent text-rose-600 hover:bg-rose-50",
   accent: "bg-gradient-to-r from-brand-600 to-violet-600 text-white hover:from-brand-700 hover:to-violet-700 shadow-glow",
   onDark: "bg-transparent text-ink-600 hover:bg-ink-100 hover:text-ink-900",
-  success: "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm disabled:bg-emerald-300",
+  success: "bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-sm hover:from-emerald-500 hover:to-emerald-600 active:scale-[.98] disabled:from-emerald-300 disabled:to-emerald-300",
+  checkout: "bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white shadow-[0_10px_28px_-10px_rgba(5,150,105,.75)] ring-1 ring-inset ring-white/25 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 hover:shadow-[0_14px_32px_-10px_rgba(5,150,105,.85)] active:scale-[.98] disabled:from-emerald-300 disabled:to-emerald-300 disabled:shadow-none",
 };
 const sizes: Record<Size, string> = {
   sm: "h-8 px-3 text-sm gap-1.5 rounded-lg",
@@ -42,7 +43,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        "inline-flex select-none items-center justify-center font-medium transition-colors disabled:cursor-not-allowed",
+        "inline-flex select-none items-center justify-center font-medium transition-all duration-150 disabled:cursor-not-allowed",
         variants[variant],
         sizes[size],
         block && "w-full",

@@ -3,7 +3,7 @@
  * takes payment, numbers the receipt and moves stock.
  */
 import { audit } from "../../core/activity-log.js";
-import { isDuplicateKey, one, type Db, type Row } from "../../core/db.js";
+import { inList, isDuplicateKey, one, type Db, type Param, type Row } from "../../core/db.js";
 import { bad } from "../../core/errors.js";
 import { cents, money } from "../../core/money.js";
 import { getSettings } from "../../core/settings.js";
@@ -57,17 +57,25 @@ async function checkoutTx(tx: Db, actor: Actor, p: CheckoutInput, key: string): 
   if (!shiftId && st.require_shift) throw bad("shift_required", "Open a shift before selling.");
   if (!p.lines?.length) throw bad("empty_cart", "The cart is empty.");
 
-  // Pass 1: prices & subtotal (all money in pesewas)
+  // Pass 1: prices & subtotal (all money in pesewas). One round-trip for all products and variants.
   type L = { product: Row; variant: Row | null; qty: number; price: number; disc: number; alloc: number; tax: number; total: number };
+  const productIds = [...new Set(p.lines.map((l) => l.productId))];
+  const variantIds = [...new Set(p.lines.map((l) => l.variantId).filter((x): x is string => !!x))];
+  const [productRows, variantRows] = await Promise.all([
+    tx.all(`SELECT * FROM products WHERE organization_id = ? AND status = 'active' AND id IN (${inList(productIds)})`, [actor.orgId, ...productIds]),
+    variantIds.length ? tx.all(`SELECT * FROM product_variants WHERE id IN (${inList(variantIds)})`, variantIds) : Promise.resolve([] as Row[]),
+  ]);
+  const productMap = new Map(productRows.map((r) => [r.id as string, r]));
+  const variantMap = new Map(variantRows.map((r) => [r.id as string, r]));
   const lines: L[] = [];
   let sub = 0, lineDisc = 0, override = false;
   for (const l of p.lines) {
-    const product = await one(tx, "SELECT * FROM products WHERE id = ? AND organization_id = ? AND status = 'active'", [l.productId, actor.orgId]);
+    const product = productMap.get(l.productId);
     if (!product) throw bad("product_unavailable", "A product in the cart is no longer available.");
     const qty = Number(l.quantity);
     if (!(qty > 0)) throw bad("invalid_quantity", "Quantities must be above zero.");
-    const variant = l.variantId ? await one(tx, "SELECT * FROM product_variants WHERE id = ? AND product_id = ?", [l.variantId, product.id]) : null;
-    if (l.variantId && !variant) throw bad("product_unavailable", "A product in the cart is no longer available.");
+    const variant = l.variantId ? variantMap.get(l.variantId) ?? null : null;
+    if (l.variantId && (!variant || variant.product_id !== product.id)) throw bad("product_unavailable", "A product in the cart is no longer available.");
     let price = cents(variant?.selling_price ?? product.selling_price);
     if (l.unitPrice != null && cents(l.unitPrice) !== price) {
       price = cents(l.unitPrice);
@@ -140,11 +148,13 @@ async function checkoutTx(tx: Db, actor: Actor, p: CheckoutInput, key: string): 
       money(sub), money(discTotal), money(tax), money(total), money(paid), money(change), money(cost), 0, discApprover ? p.discountApprovalId : null, now]);
   if (discApprover) await tx.run("UPDATE approvals SET used_ref = ? WHERE id = ?", [saleId, p.discountApprovalId]);
 
-  for (const l of lines) {
+  const itemRows: Param[][] = lines.map((l) => [uuid(), actor.orgId, saleId, l.product.id, l.variant?.id ?? null,
+    l.variant ? `${l.product.name} — ${l.variant.label}` : l.product.name, l.variant?.sku ?? l.product.sku, l.qty,
+    money(l.price), n(l.product.cost_price), money(l.disc + l.alloc), money(l.tax), money(l.total), 0]);
+  for (let i = 0; i < itemRows.length; i += 100) {
+    const chunk = itemRows.slice(i, i + 100);
     await tx.run(`INSERT INTO sale_items (id, organization_id, sale_id, product_id, variant_id, name_snapshot, sku_snapshot, quantity, unit_price, cost_snapshot, discount, tax, line_total, refunded_quantity)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [uuid(), actor.orgId, saleId, l.product.id, l.variant?.id ?? null, l.variant ? `${l.product.name} — ${l.variant.label}` : l.product.name,
-        l.variant?.sku ?? l.product.sku, l.qty, money(l.price), n(l.product.cost_price), money(l.disc + l.alloc), money(l.tax), money(l.total), 0]);
+      VALUES ${chunk.map(() => "(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").join(",")}`, chunk.flat());
   }
   // Stock: aggregate per product/variant so availability is checked once.
   const agg = new Map<string, { productId: string; variantId: string | null; qty: number }>();
@@ -155,11 +165,14 @@ async function checkoutTx(tx: Db, actor: Actor, p: CheckoutInput, key: string): 
     agg.set(k, cur);
   }
   for (const s of agg.values())
-    await applyStock(tx, { orgId: actor.orgId, branchId: t.branch_id, productId: s.productId, variantId: s.variantId, delta: -s.qty, type: "sale", refType: "sale", refId: saleId, actorId: actor.memberId, allowNegative: !st.block_negative_stock });
+    await applyStock(tx, { orgId: actor.orgId, branchId: t.branch_id, productId: s.productId, variantId: s.variantId, delta: -s.qty, type: "sale", refType: "sale", refId: saleId, actorId: actor.memberId, allowNegative: !st.block_negative_stock, product: productMap.get(s.productId) });
 
-  for (const pay of p.payments)
-    await tx.run("INSERT INTO payments (id, organization_id, sale_id, method, amount, status, provider_reference, recorded_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-      [uuid(), actor.orgId, saleId, pay.method, money(cents(pay.amount)), "recorded", nullIfEmpty(pay.reference), actor.memberId, now]);
+  const payRows: Param[][] = (p.payments ?? []).map((pay) => [uuid(), actor.orgId, saleId, pay.method, money(cents(pay.amount)), "recorded", nullIfEmpty(pay.reference), actor.memberId, now]);
+  for (let i = 0; i < payRows.length; i += 100) {
+    const chunk = payRows.slice(i, i + 100);
+    await tx.run(`INSERT INTO payments (id, organization_id, sale_id, method, amount, status, provider_reference, recorded_by, created_at)
+      VALUES ${chunk.map(() => "(?,?,?,?,?,?,?,?,?)").join(",")}`, chunk.flat());
+  }
 
   if (customerId)
     await tx.run("UPDATE customers SET total_spend = total_spend + ?, visits = visits + 1, last_visit_at = ? WHERE id = ?", [money(total), now, customerId]);

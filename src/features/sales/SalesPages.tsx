@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { LuArrowLeft, LuBan, LuDownload, LuPrinter, LuReceipt, LuShieldCheck, LuUndo2 } from "react-icons/lu";
+import { LuArrowLeft, LuBan, LuDownload, LuFileText, LuPrinter, LuReceipt, LuShieldCheck, LuUndo2 } from "react-icons/lu";
 import { useSession } from "@/app/session";
 import { actions, useBranches, useCustomers, useEmployees, useSale, useSaleRefunds, useSales, useTerminals } from "@/services/api";
 import {
@@ -8,6 +8,7 @@ import {
   Pager, SearchInput, Select, Textarea, useToast, type Column,
 } from "@/components/ui";
 import { formatDateTime, formatMoney, methodLabel } from "@/lib/format";
+import { exportCsv as downloadCsv, exportPrintable, type ExportReport } from "@/lib/export";
 import type { PaymentMethod, Sale, SaleStatus } from "@/types";
 import { Receipt } from "@/features/pos/Receipt";
 import { ApprovalModal, type ApprovalRequest } from "@/features/pos/PosModals";
@@ -22,12 +23,37 @@ export function SalesPage() {
   const employees = useEmployees().data;
   const branches = useBranches().data;
   const customers = useCustomers().data;
+  const { business } = useSession();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [cashier, setCashier] = useState("");
   const [status, setStatus] = useState("");
   const [branch, setBranch] = useState("");
-  const rows = q.data.filter((s) => (!cashier || s.cashierId === cashier) && (!status || s.status === status) && (!branch || s.branchId === branch) && s.receiptNumber.toLowerCase().includes(search.toLowerCase()));
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const rows = q.data.filter((s) => (!cashier || s.cashierId === cashier) && (!status || s.status === status) && (!branch || s.branchId === branch)
+    && (!from || s.createdAt.slice(0, 10) >= from) && (!to || s.createdAt.slice(0, 10) <= to) && s.receiptNumber.toLowerCase().includes(search.toLowerCase()));
+
+  const report = (): ExportReport => ({
+    filename: "famous-sales",
+    title: "Sales history",
+    subtitle: `${rows.length} transactions · Total ${formatMoney(rows.reduce((sum, s) => sum + s.total, 0))}${from || to ? ` · ${from || "…"} to ${to || "…"}` : ""}`,
+    business,
+    columns: [
+      { key: "receipt", header: "Receipt" }, { key: "date", header: "Date" }, { key: "cashier", header: "Served by" },
+      { key: "customer", header: "Customer" }, { key: "branch", header: "Branch" }, { key: "pay", header: "Payment" },
+      { key: "status", header: "Status" }, { key: "total", header: "Total", align: "right" },
+    ],
+    rows: rows.map((s) => [s.receiptNumber, formatDateTime(s.createdAt), employees.find((e) => e.id === s.cashierId)?.fullName ?? "", customers.find((c) => c.id === s.customerId)?.name ?? "Walk-in",
+      branches.find((b) => b.id === s.branchId)?.name ?? "", s.payments.map((p) => methodLabel[p.method]).join(" + "), s.status, s.total]),
+    summary: [
+      { label: "Transactions", value: String(rows.length) },
+      { label: "Gross sales", value: formatMoney(rows.reduce((sum, s) => sum + s.total, 0)) },
+      { label: "Average sale", value: formatMoney(rows.length ? rows.reduce((sum, s) => sum + s.total, 0) / rows.length : 0) },
+    ],
+  });
+  const exportCsv = () => downloadCsv(report());
+  const exportPdf = () => exportPrintable(report());
 
   const cols: Column<Sale>[] = [
     { key: "r", header: "Receipt", cell: (s) => <span className="font-medium text-ink-900">{s.receiptNumber}</span> },
@@ -42,7 +68,10 @@ export function SalesPage() {
 
   return (
     <>
-      <PageHeader title="Sales" description="Every transaction, who made it and how it was paid." actions={<Button variant="secondary" icon={<LuDownload className="size-4" />}>Export CSV</Button>} />
+      <PageHeader title="Sales" description="Every transaction, who made it and how it was paid." actions={<>
+        <Button variant="secondary" icon={<LuDownload className="size-4" />} onClick={exportCsv}>Export CSV</Button>
+        <Button variant="secondary" icon={<LuFileText className="size-4" />} onClick={exportPdf}>PDF</Button>
+      </>} />
       <Card padded={false}>
         <FilterBar>
           <SearchInput className="sm:w-60" placeholder="Receipt number" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -55,7 +84,8 @@ export function SalesPage() {
           <Select aria-label="Branch" className="sm:w-48" value={branch} onChange={(e) => setBranch(e.target.value)}>
             <option value="">All branches</option>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </Select>
-          <input type="date" aria-label="From" className="h-10 rounded-lg border-0 px-3 text-sm ring-1 ring-ink-200" />
+          <input type="date" aria-label="From" value={from} onChange={(e) => setFrom(e.target.value)} className="h-10 rounded-lg border-0 px-3 text-sm ring-1 ring-ink-200" />
+          <input type="date" aria-label="To" value={to} onChange={(e) => setTo(e.target.value)} className="h-10 rounded-lg border-0 px-3 text-sm ring-1 ring-ink-200" />
         </FilterBar>
         <DataState query={{ ...q, data: rows }} empty={<EmptyState icon={<LuReceipt className="size-7" />} title={q.data.length ? "No sales match" : "No sales yet"} description={q.data.length ? "Try different filters." : "Sales made on the POS appear here."} />}>
           {(data) => <DataTable columns={cols} rows={data} rowKey={(s) => s.id} onRowClick={(s) => navigate(`/sales/${s.id}`)} footer={<Pager total={data.length} />} />}
@@ -156,7 +186,7 @@ export function SaleDetailPage() {
           </Card>
         </div>
         <div className="hidden lg:block">
-          <Receipt data={{
+          <Receipt className="print-area" data={{
             reprint: true, receiptNumber: sale.receiptNumber, createdAt: sale.createdAt, servedBy: cashier?.displayName ?? "", terminal: terminals.find((t) => t.id === sale.terminalId)?.name ?? "",
             branch: branches.find((b) => b.id === sale.branchId)?.name ?? "", customer: customers.find((c) => c.id === sale.customerId)?.name,
             business: business ? { name: business.name, phone: business.phone, tin: business.tin } : undefined,

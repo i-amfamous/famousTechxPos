@@ -44,7 +44,13 @@ export async function createMysqlDb(url: string, ssl: boolean): Promise<Db> {
   // emits the callback connection — wrap it before using promise APIs.
   pool.on("connection", (c) => {
     const conn = c as unknown as { promise: () => { query: (sql: string) => Promise<unknown> } };
-    void conn.promise().query("SET time_zone = '+00:00'").catch((e: unknown) => console.error("[db] time zone setup failed:", e));
+    void (async () => {
+      const p = conn.promise();
+      await p.query("SET time_zone = '+00:00'");
+      // TiDB: pessimistic transactions stop concurrent tills racing on the same receipt sequence / stock row.
+      // Plain MySQL rejects this variable, so it is best-effort.
+      await p.query("SET tidb_txn_mode = 'pessimistic'").catch(() => undefined);
+    })().catch((e: unknown) => console.error("[db] connection setup failed:", e));
   });
 
   const make = (conn: { query: (sql: string, params?: unknown[]) => Promise<unknown> }): Omit<Db, "tx" | "close"> => ({

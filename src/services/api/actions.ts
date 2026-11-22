@@ -5,7 +5,7 @@
 import * as mock from "@/mock/data";
 import { AppError } from "@/lib/errors";
 import { DEMO, SIGNED_OUT_EVENT, credentials, http } from "@/lib/http";
-import { invalidate, invalidateAll, resetQueries } from "@/lib/query";
+import { invalidate, invalidateAll, refreshSession, resetQueries } from "@/lib/query";
 import type { BarcodeLookup, CartLine, Category, Customer, Employee, PaymentLine, PaymentMethod, Product, Role, SaleReceipt } from "@/types";
 import { pause } from "./demo";
 
@@ -65,16 +65,21 @@ export const actions = {
   async changePassword(current: string, next: string) {
     if (DEMO) return pause();
     await http.post("/me/password", { current, next });
+    refreshSession();
   },
 
   async updateMyProfile(fullName: string, phone: string) {
     if (DEMO) return pause();
     await http.patch("/me/profile", { fullName, phone });
+    refreshSession();
+    invalidate("employees", "activity");
   },
 
   async createBusiness(details: Record<string, unknown>) {
     if (DEMO) return pause("demo");
     const { organizationId } = await http.post<{ organizationId: string }>("/business", details);
+    refreshSession();
+    invalidateAll();
     return organizationId;
   },
 
@@ -238,6 +243,7 @@ export const actions = {
     const path = { resend_invite: "resend-invite", reset_password: "reset-password", set_status: "status", sign_out: "sign-out" }[action];
     const r = await http.post<AccessHandover>(`/employees/${memberId}/${path}`, extra);
     invalidate("employees", "activity", "signins");
+    refreshSession();
     return r;
   },
 
@@ -251,6 +257,7 @@ export const actions = {
     if (DEMO) return pause();
     await http.put(`/employees/${memberId}/access`, { roleId, overrides, branchIds });
     invalidate("employees", "roles", "activity");
+    refreshSession();
   },
 
   async transferOwnership(memberId: string) {
@@ -265,6 +272,7 @@ export const actions = {
     const isNew = !role.id || role.id === "new";
     const { id } = isNew ? await http.post<{ id: string }>("/roles", body) : await http.put<{ id: string }>(`/roles/${role.id}`, body);
     invalidate("roles", "activity");
+    refreshSession();
     return id;
   },
 
@@ -272,6 +280,7 @@ export const actions = {
     if (DEMO) return pause();
     await http.delete(`/roles/${id}`);
     invalidate("roles");
+    refreshSession();
   },
 
   /* ───────── Catalogue & stock ───────── */
@@ -380,11 +389,14 @@ export const actions = {
     if (b.id) await http.patch(`/branches/${b.id}`, b);
     else await http.post("/branches", b);
     invalidate("branches");
+    refreshSession();
   },
 
   async saveSettings(patch: Record<string, unknown>) {
     if (DEMO) return pause();
     await http.patch("/settings", patch);
+    refreshSession();
+    invalidate("dashboard", "reports");
   },
 
   async markNotificationsRead(ids?: string[]) {

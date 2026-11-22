@@ -6,6 +6,7 @@ import { useSession } from "@/app/session";
 import { rangeFor, useDashboard, useEmployeeReport, useExpenses, usePnl, useProducts, usePurchaseOrders, useSales, useSuppliers } from "@/services/api";
 import { Avatar, BarChart, Button, Card, CardHeader, DataTable, EmptyState, PageHeader, Segmented, Select, ShareBars, Skeleton, StatCard } from "@/components/ui";
 import { cn, formatDate, formatMoney, methodLabel } from "@/lib/format";
+import { exportCsv as downloadCsv, exportPrintable, type ExportReport } from "@/lib/export";
 
 type ReportKey = "sales" | "pnl" | "employees" | "products" | "stock" | "payments" | "refunds" | "discounts" | "shifts" | "expenses" | "purchases";
 const reports: { key: ReportKey; label: string; icon: ReactNode; group: string }[] = [
@@ -22,16 +23,8 @@ const reports: { key: ReportKey; label: string; icon: ReactNode; group: string }
   { key: "expenses", label: "Expenses", icon: <LuWallet />, group: "Money" },
 ];
 
-function downloadCsv(name: string, head: string[], rows: (string | number)[][]) {
-  const csv = [head, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  a.download = `${name}.csv`;
-  a.click();
-}
-
 export function ReportsPage() {
-  const { branches, branch } = useSession();
+  const { branches, branch, business } = useSession();
   const [sel, setSel] = useState<ReportKey>("sales");
   const [range, setRange] = useState<"today" | "7d" | "30d">("7d");
   const [scope, setScope] = useState<string>(branch.id);
@@ -53,20 +46,23 @@ export function ReportsPage() {
   const expByCat = Object.entries(expenses.reduce<Record<string, number>>((a, e) => ({ ...a, [e.category]: (a[e.category] ?? 0) + e.amount }), {})).sort((a, b) => b[1] - a[1]);
   const refunded = sales.filter((s) => s.status !== "completed");
 
-  const exportCurrent = () => {
-    const name = `${sel}-${range}`;
+  const buildReport = (): ExportReport => {
+    const base = { filename: `famous-${sel}-${range}`, title: r.label, business, subtitle: `${formatDate(from.toISOString())} – ${formatDate(to.toISOString())} · ${scope === "all" ? "All branches" : branches.find((b) => b.id === branchId)?.name ?? ""}` };
     if (sel === "employees" || sel === "discounts" || sel === "shifts")
-      downloadCsv(name, ["Employee", "Sales", "Revenue", "Avg sale", "Discounts", "Refunds", "Approvals given", "Cash variance", "Shifts"],
-        emp.data.map((e) => [e.fullName, e.salesCount, e.revenue, e.avgSale.toFixed(2), e.discounts, e.refunds, e.approvalsGiven, e.cashVariance, e.shifts]));
-    else if (sel === "pnl") downloadCsv(name, ["Line", "Amount"], Object.entries(pnl.data).map(([k, v]) => [k, v]));
-    else if (sel === "stock") downloadCsv(name, ["Product", "SKU", "On hand", "Cost", "Value"], products.map((p) => [p.name, p.sku, p.stock, p.costPrice, Math.max(0, p.stock) * p.costPrice]));
-    else if (sel === "expenses") downloadCsv(name, ["Date", "Category", "Description", "Amount", "Paid by"], expenses.map((e) => [e.date, e.category, e.description, e.amount, methodLabel[e.method] ?? e.method]));
-    else if (sel === "purchases") downloadCsv(name, ["PO", "Supplier", "Status", "Total"], pos.map((p) => [p.number, suppliers.find((s) => s.id === p.supplierId)?.name ?? "", p.status, p.lines.reduce((a, l) => a + l.quantity * l.unitCost, 0)]));
-    else if (sel === "refunds") downloadCsv(name, ["Receipt", "Date", "Status", "Total", "Refunded"], refunded.map((s) => [s.receiptNumber, s.createdAt, s.status, s.total, s.refundedTotal ?? 0]));
-    else if (sel === "payments") downloadCsv(name, ["Method", "Amount"], dash.data.byMethod.map((m) => [methodLabel[m.method] ?? m.method, m.amount]));
-    else if (sel === "products") downloadCsv(name, ["Product", "Quantity", "Revenue"], dash.data.topProducts.map((t) => [t.name, t.quantity, t.revenue]));
-    else downloadCsv(name, ["Day", "Revenue"], dash.data.trend.map((t) => [t.label, t.value]));
+      return { ...base,
+        columns: ["Employee", "Sales", "Revenue", "Avg sale", "Discounts", "Refunds", "Approvals given", "Cash variance", "Shifts"].map((header) => ({ key: header, header, align: ["Sales", "Revenue", "Avg sale", "Discounts", "Refunds", "Approvals given", "Cash variance", "Shifts"].includes(header) ? "right" as const : "left" as const })),
+        rows: emp.data.map((e) => [e.fullName, e.salesCount, e.revenue, e.avgSale.toFixed(2), e.discounts, e.refunds, e.approvalsGiven, e.cashVariance, e.shifts]) };
+    if (sel === "pnl") return { ...base, columns: [{ key: "line", header: "Line" }, { key: "amount", header: "Amount", align: "right" }], rows: Object.entries(pnl.data).map(([k, v]) => [k, v]) };
+    if (sel === "stock") return { ...base, columns: [{ key: "product", header: "Product" }, { key: "sku", header: "SKU" }, { key: "onhand", header: "On hand", align: "right" }, { key: "cost", header: "Cost", align: "right" }, { key: "value", header: "Value", align: "right" }], rows: products.map((p) => [p.name, p.sku, p.stock, p.costPrice, Math.max(0, p.stock) * p.costPrice]) };
+    if (sel === "expenses") return { ...base, columns: [{ key: "date", header: "Date" }, { key: "cat", header: "Category" }, { key: "desc", header: "Description" }, { key: "amount", header: "Amount", align: "right" }, { key: "by", header: "Paid by" }], rows: expenses.map((e) => [e.date, e.category, e.description, e.amount, methodLabel[e.method] ?? e.method]) };
+    if (sel === "purchases") return { ...base, columns: [{ key: "po", header: "PO" }, { key: "supplier", header: "Supplier" }, { key: "status", header: "Status" }, { key: "total", header: "Total", align: "right" }], rows: pos.map((p) => [p.number, suppliers.find((s) => s.id === p.supplierId)?.name ?? "", p.status, p.lines.reduce((a, l) => a + l.quantity * l.unitCost, 0)]) };
+    if (sel === "refunds") return { ...base, columns: [{ key: "receipt", header: "Receipt" }, { key: "date", header: "Date" }, { key: "status", header: "Status" }, { key: "total", header: "Total", align: "right" }, { key: "refunded", header: "Refunded", align: "right" }], rows: refunded.map((s) => [s.receiptNumber, s.createdAt, s.status, s.total, s.refundedTotal ?? 0]) };
+    if (sel === "payments") return { ...base, columns: [{ key: "method", header: "Method" }, { key: "amount", header: "Amount", align: "right" }], rows: dash.data.byMethod.map((m) => [methodLabel[m.method] ?? m.method, m.amount]) };
+    if (sel === "products") return { ...base, columns: [{ key: "product", header: "Product" }, { key: "qty", header: "Quantity", align: "right" }, { key: "revenue", header: "Revenue", align: "right" }], rows: dash.data.topProducts.map((t) => [t.name, t.quantity, t.revenue]) };
+    return { ...base, columns: [{ key: "day", header: "Day" }, { key: "revenue", header: "Revenue", align: "right" }], rows: dash.data.trend.map((t) => [t.label, t.value]) };
   };
+  const exportCsv = () => downloadCsv(buildReport());
+  const exportPdf = () => exportPrintable(buildReport());
 
   return (
     <>
@@ -94,8 +90,8 @@ export function ReportsPage() {
                 <option value="all">All branches</option>
                 {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
               </Select>
-              <Button variant="secondary" icon={<LuDownload className="size-4" />} onClick={exportCurrent}>CSV</Button>
-              <Button variant="secondary" icon={<LuDownload className="size-4" />} onClick={() => window.print()}>PDF</Button>
+              <Button variant="secondary" icon={<LuDownload className="size-4" />} onClick={exportCsv}>CSV</Button>
+              <Button variant="secondary" icon={<LuDownload className="size-4" />} onClick={exportPdf}>PDF</Button>
             </div>
             <p className="mt-2 text-xs text-ink-500">{formatDate(from.toISOString())} – {formatDate(to.toISOString())}</p>
           </Card>

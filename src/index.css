@@ -57,8 +57,44 @@
   scrollbar-width: thin;
 }
 
+/* Receipt feed animation: the paper slides out of the printer, line by line. */
+@keyframes receipt-feed {
+  0% { clip-path: inset(0 0 100% 0); transform: translateY(-10px) scaleY(.98); }
+  100% { clip-path: inset(0 0 0 0); transform: translateY(0) scaleY(1); }
+}
+@keyframes receipt-scan {
+  0% { top: 0; opacity: 0; }
+  18% { opacity: .85; }
+  100% { top: 100%; opacity: 0; }
+}
+.receipt-paper {
+  transform-origin: top center;
+  animation: receipt-feed 1.15s cubic-bezier(.16, .84, .3, 1) both;
+}
+.receipt-paper::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, #818cf8, transparent);
+  animation: receipt-scan 1.15s ease-in-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .receipt-paper, .receipt-paper::after { animation: none; }
+  .receipt-paper::after { display: none; }
+}
+
 /* Receipt printing: only the receipt is printed, sized for 80mm thermal paper. */
 @media print {
+  .receipt-paper, .receipt-paper::after {
+    animation: none !important;
+    clip-path: none !important;
+    transform: none !important;
+  }
+  .receipt-paper::after { display: none !important; }
+
   body * {
     visibility: hidden;
   }

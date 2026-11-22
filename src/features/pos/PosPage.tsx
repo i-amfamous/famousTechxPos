@@ -7,6 +7,7 @@ import {
 import { useSession } from "@/app/session";
 import { actions, useCategories, useHeldCarts, useProducts } from "@/services/api";
 import { Avatar, Badge, Button, ConfirmDialog, IconButton, Input, Menu, Modal, useToast } from "@/components/ui";
+import { ProductCover } from "@/features/products/ProductsPage";
 import { useScan } from "@/features/scanner/ScannerProvider";
 import { ScanButton } from "@/features/scanner/ScanControls";
 import { Logo } from "@/components/layout/AppLayout";
@@ -243,7 +244,7 @@ export function PosPage() {
             Held {heldCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs text-amber-800">{heldCount}</span>}
           </Button>
         </div>
-        <Button size="xl" variant="success" block className="mt-3" disabled={!lines.length} onClick={() => setModal("pay")}>
+        <Button size="xl" variant="checkout" block className="mt-3" disabled={!lines.length} onClick={() => setModal("pay")}>
           <span className="flex w-full items-center justify-between"><span>Charge</span><span className="num">{formatMoney(total)}</span></span>
         </Button>
         <p className="mt-2 hidden text-center text-[11px] text-ink-400 lg:block">F2 search · F8 hold · F9 charge</p>
@@ -336,7 +337,6 @@ export function PosPage() {
                   const out = !svc && p.stock <= 0;
                   const low = !svc && !out && p.stock <= p.reorderLevel;
                   const qty = inCart(p.id);
-                  const color = categories.find((c) => c.id === p.categoryId)?.color ?? "bg-ink-100 text-ink-700";
                   return (
                     <button
                       key={p.id}
@@ -348,9 +348,7 @@ export function PosPage() {
                         qty > 0 && "ring-2 ring-brand-500",
                       )}
                     >
-                      <div className={cn("mb-3 flex aspect-[4/3] items-center justify-center rounded-xl text-2xl font-bold", color)}>
-                        {p.name.split(" ").slice(0, 2).map((w) => w[0]).join("")}
-                      </div>
+                      <ProductCover p={p} className="mb-3 aspect-[4/3] h-auto w-full rounded-xl object-cover text-2xl ring-0" />
                       <p className="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-ink-900">{p.name}</p>
                       <div className="mt-1 flex items-end justify-between gap-1">
                         <span className="num font-semibold text-ink-900">{formatMoney(p.sellingPrice)}</span>

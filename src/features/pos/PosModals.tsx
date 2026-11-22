@@ -403,7 +403,7 @@ export function PaymentModal({
               <Button size="lg" variant="secondary" onClick={onComplete} autoFocus>New sale</Button>
             </div>
           </div>
-          <Receipt data={receipt} className="hidden sm:block" />
+          <Receipt data={receipt} className="print-area hidden sm:block print:block" />
         </div>
       ) : stage === "error" ? (
         <div className="space-y-4 text-center">
@@ -486,7 +486,7 @@ export function PaymentModal({
                 <span className="num">{formatMoney(remaining > 0 ? remaining : cashChange)}</span>
               </div>
             </div>
-            <Button size="lg" variant="success" className="mt-4" disabled={!covered} loading={stage === "processing"} onClick={complete}>
+            <Button size="lg" variant="checkout" className="mt-4" disabled={!covered} loading={stage === "processing"} onClick={complete}>
               Complete sale
             </Button>
           </div>

@@ -541,3 +541,23 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 CREATE INDEX IF NOT EXISTS audit_org ON audit_logs (organization_id, created_at);
 CREATE INDEX IF NOT EXISTS audit_actor ON audit_logs (actor_id, created_at);
+
+-- ───────────── Hot-path indexes (checkout, reports, history) ─────────────
+-- These are safe to re-run; the migration executes schema.sql on every deploy.
+CREATE INDEX IF NOT EXISTS sales_org_date ON sales (organization_id, created_at);
+CREATE INDEX IF NOT EXISTS sales_org_branch_date ON sales (organization_id, branch_id, created_at);
+CREATE INDEX IF NOT EXISTS sales_org_receipt ON sales (organization_id, receipt_number);
+CREATE INDEX IF NOT EXISTS sale_items_sale ON sale_items (sale_id);
+CREATE INDEX IF NOT EXISTS payments_sale ON payments (sale_id);
+CREATE INDEX IF NOT EXISTS variants_org_barcode ON product_variants (organization_id, barcode);
+CREATE INDEX IF NOT EXISTS inventory_product_branch ON inventory (product_id, branch_id);
+CREATE INDEX IF NOT EXISTS movements_product ON stock_movements (product_id, created_at);
+CREATE INDEX IF NOT EXISTS movements_org_date ON stock_movements (organization_id, created_at);
+CREATE INDEX IF NOT EXISTS auth_tokens_user_purpose ON auth_tokens (user_id, purpose);
+CREATE INDEX IF NOT EXISTS approvals_org_date ON approvals (organization_id, created_at);
+CREATE INDEX IF NOT EXISTS refunds_org_date ON refunds (organization_id, created_at);
+CREATE INDEX IF NOT EXISTS held_carts_org_branch_date ON held_carts (organization_id, branch_id, created_at);
+CREATE INDEX IF NOT EXISTS purchase_orders_org_date ON purchase_orders (organization_id, created_at);
+CREATE INDEX IF NOT EXISTS stock_transfers_org_date ON stock_transfers (organization_id, created_at);
+CREATE INDEX IF NOT EXISTS terminals_org_branch ON pos_terminals (organization_id, branch_id);
+CREATE INDEX IF NOT EXISTS customers_org_phone ON customers (organization_id, phone);

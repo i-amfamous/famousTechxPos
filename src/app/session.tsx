@@ -10,7 +10,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import * as mock from "@/mock/data";
 import { AppError } from "@/lib/errors";
 import { DEMO, SIGNED_OUT_EVENT, credentials, http, storage, type TerminalLink } from "@/lib/http";
-import { invalidateAll, resetQueries, useQuery } from "@/lib/query";
+import { invalidateAll, resetQueries, SESSION_REFRESH_EVENT, useQuery } from "@/lib/query";
 import type { Branch, Employee, Role, RosterMember, Terminal } from "@/types";
 
 export interface Business { id: string; name: string; phone?: string; email?: string; address?: string; tin?: string; registration_no?: string; category?: string; logo_url?: string; timezone?: string }
@@ -159,8 +159,10 @@ function LiveSession({ children }: { children: ReactNode }) {
   useEffect(() => {
     loadContext().catch(() => setMe(null)).finally(() => setReady(true));
     const onSignedOut = () => { shiftEpoch.current++; shiftLookup.current = null; resetQueries(DEVICE_QUERIES); setMe(null); setPendingPosUser(null); setShiftId(null); setShiftChecked(false); };
+    const onRefresh = () => { void loadContext().catch(() => undefined); };
     window.addEventListener(SIGNED_OUT_EVENT, onSignedOut);
-    return () => window.removeEventListener(SIGNED_OUT_EVENT, onSignedOut);
+    window.addEventListener(SESSION_REFRESH_EVENT, onRefresh);
+    return () => { window.removeEventListener(SIGNED_OUT_EVENT, onSignedOut); window.removeEventListener(SESSION_REFRESH_EVENT, onRefresh); };
   }, [loadContext]);
 
   const orgId = me?.business?.id ?? "";

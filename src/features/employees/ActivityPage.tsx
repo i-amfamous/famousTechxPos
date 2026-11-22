@@ -1,13 +1,16 @@
 import { useMemo, useState } from "react";
-import { LuDownload } from "react-icons/lu";
+import { LuDownload, LuFileText } from "react-icons/lu";
+import { useSession } from "@/app/session";
 import { useActivity, useBranches, useEmployees, useTerminals } from "@/services/api";
 import { Button, Card, DataState, EmptyState, FilterBar, PageHeader, SearchInput, Select } from "@/components/ui";
 import { formatDate } from "@/lib/format";
+import { exportCsv as downloadCsv, exportPrintable, type ExportReport } from "@/lib/export";
 import type { ActivityEvent } from "@/types";
 import { ActivityList } from "./EmployeeDetailPage";
 import { activityCategoryLabel } from "./shared";
 
 export function ActivityPage() {
+  const { business } = useSession();
   const q = useActivity();
   const employees = useEmployees().data;
   const branches = useBranches().data;
@@ -27,12 +30,21 @@ export function ActivityPage() {
     return [...m.entries()];
   }, [rows]);
 
+  const report = (): ExportReport => ({
+    filename: "famous-activity", title: "Activity log", subtitle: `${rows.length} events`, business,
+    columns: [{ key: "date", header: "Date" }, { key: "type", header: "Type" }, { key: "actor", header: "Employee" }, { key: "action", header: "Action" }, { key: "detail", header: "Detail" }, { key: "amount", header: "Amount", align: "right" }],
+    rows: rows.map((a) => [a.createdAt, activityCategoryLabel[a.category], employees.find((e) => e.id === a.actorId)?.fullName ?? "", a.action, a.detail, a.amount ?? ""]),
+  });
+
   return (
     <>
       <PageHeader
         title="Activity log"
         description="Every sign-in, sale, refund, approval, stock change and permission change — who did it, where and when."
-        actions={<Button variant="secondary" icon={<LuDownload className="size-4" />}>Export CSV</Button>}
+        actions={<>
+          <Button variant="secondary" icon={<LuDownload className="size-4" />} onClick={() => downloadCsv(report())}>Export CSV</Button>
+          <Button variant="secondary" icon={<LuFileText className="size-4" />} onClick={() => exportPrintable(report())}>PDF</Button>
+        </>}
       />
       <Card padded={false}>
         <FilterBar>

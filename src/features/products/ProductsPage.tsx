@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  LuArchive, LuArchiveRestore, LuDownload, LuGlobe, LuPackage, LuPackageCheck, LuPlus, LuScanBarcode, LuSparkles, LuX,
+  LuArchive, LuArchiveRestore, LuDownload, LuFileText, LuGlobe, LuPackage, LuPackageCheck, LuPlus, LuScanBarcode, LuSparkles, LuX,
 } from "react-icons/lu";
 import { useSession } from "@/app/session";
 import { actions, useCategories, useProducts } from "@/services/api";
@@ -11,6 +11,7 @@ import {
 import { useScan } from "@/features/scanner/ScannerProvider";
 import { ScanButton } from "@/features/scanner/ScanControls";
 import { cn, formatMoney } from "@/lib/format";
+import { exportCsv as downloadCsv, exportPrintable, type ExportReport } from "@/lib/export";
 import type { BarcodeLookup, Product } from "@/types";
 
 export function StockBadge({ p }: { p: Product }) {
@@ -20,17 +21,24 @@ export function StockBadge({ p }: { p: Product }) {
   return <span className="num text-ink-700">{p.stock}</span>;
 }
 
-export function ProductThumb({ p, className }: { p: Pick<Product, "name" | "imageUrl" | "categoryId">; className?: string }) {
+/** Product cover with a category-coloured initials fallback if the photo is missing or fails to load. */
+export function ProductCover({ p, className }: { p: Pick<Product, "name" | "imageUrl" | "categoryId">; className?: string }) {
   const categories = useCategories().data;
+  const [broken, setBroken] = useState(false);
+  useEffect(() => setBroken(false), [p.imageUrl]);
   const c = categories.find((x) => x.id === p.categoryId);
-  if (p.imageUrl) return <img src={p.imageUrl} alt="" className={cn("size-10 rounded-lg bg-white object-contain ring-1 ring-ink-200", className)} />;
-  return <span className={cn("flex size-10 items-center justify-center rounded-lg text-xs font-bold", c?.color ?? "bg-ink-100 text-ink-600", className)}>{p.name.split(" ").slice(0, 2).map((w) => w[0]).join("")}</span>;
+  const initials = p.name.split(" ").filter((w) => /[a-z0-9]/i.test(w)).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
+  if (p.imageUrl && !broken)
+    return <img src={p.imageUrl} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} className={cn("size-10 rounded-lg bg-white object-cover ring-1 ring-ink-200", className)} />;
+  return <span className={cn("flex size-10 items-center justify-center rounded-lg text-xs font-bold", c?.color ?? "bg-ink-100 text-ink-600", className)}>{initials}</span>;
 }
+
+export const ProductThumb = ProductCover;
 
 export function ProductsPage() {
   const q = useProducts();
   const categories = useCategories().data;
-  const { can } = useSession();
+  const { can, business } = useSession();
   const [tab, setTab] = useState<"active" | "archived">("active");
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState("");
@@ -47,16 +55,25 @@ export function ProductsPage() {
     return "New product — details being looked up";
   }, !edit);
 
-  const exportCsv = () => {
-    const head = ["name", "sku", "barcode", "category", "cost_price", "selling_price", "stock", "reorder_level", "status"];
-    const lines = q.data.map((p) => [p.name, p.sku, p.barcode ?? "", categories.find((c) => c.id === p.categoryId)?.name ?? "", p.costPrice, p.sellingPrice, p.stock, p.reorderLevel, p.status]
-      .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","));
-    const blob = new Blob([[head.join(","), ...lines].join("\n")], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "products.csv";
-    a.click();
-  };
+  const report = (): ExportReport => ({
+    filename: "famous-products",
+    title: "Product catalogue",
+    subtitle: `${rows.length} products${cat ? ` · ${categories.find((c) => c.id === cat)?.name ?? ""}` : ""}`,
+    business,
+    columns: [
+      { key: "name", header: "Product" }, { key: "sku", header: "SKU" }, { key: "barcode", header: "Barcode" },
+      { key: "category", header: "Category" }, { key: "cost", header: "Cost", align: "right" },
+      { key: "price", header: "Price", align: "right" }, { key: "stock", header: "Stock", align: "right" },
+      { key: "reorder", header: "Reorder", align: "right" }, { key: "status", header: "Status" },
+    ],
+    rows: rows.map((p) => [p.name, p.sku, p.barcode ?? "", categories.find((c) => c.id === p.categoryId)?.name ?? "", p.costPrice, p.sellingPrice, p.stock, p.reorderLevel, p.status]),
+    summary: [
+      { label: "Products", value: String(rows.length) },
+      { label: "Stock value", value: formatMoney(rows.reduce((sum, p) => sum + Math.max(0, p.stock) * p.costPrice, 0)) },
+    ],
+  });
+  const exportCsv = () => downloadCsv(report());
+  const exportPdf = () => exportPrintable(report());
 
   const cols: Column<Product>[] = [
     { key: "n", header: "Product", cell: (p) => <div className="flex items-center gap-3"><ProductThumb p={p} /><div><p className="font-medium text-ink-900">{p.name}</p><p className="text-xs text-ink-500">{p.sku}{p.barcode && ` · ${p.barcode}`}{p.variants && ` · ${p.variants.length} variants`}</p></div></div> },
@@ -74,6 +91,7 @@ export function ProductsPage() {
         description="Your catalogue, prices and stock at the selected branch. Scan a barcode anytime to find or add a product."
         actions={<>
           <Button variant="secondary" icon={<LuDownload className="size-4" />} onClick={exportCsv}>Export CSV</Button>
+          <Button variant="secondary" icon={<LuFileText className="size-4" />} onClick={exportPdf}>PDF</Button>
           <ScanButton label="Scan to add" />
           {can("products.manage") && <Button icon={<LuPlus className="size-4" />} onClick={() => { setScanned(null); setEdit("new"); }}>Add product</Button>}
         </>}

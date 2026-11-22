@@ -20,6 +20,8 @@ interface Entry {
   rerun?: boolean;
   /** Identity generation this entry's current request belongs to. */
   epoch: number;
+  /** When the last successful request finished — used to revalidate stale screens on mount/focus. */
+  fetchedAt: number;
   listeners: Set<() => void>;
   snapshot: { data: unknown; error: string | null; loading: boolean; loaded: boolean };
 }
@@ -33,7 +35,7 @@ export const QUERY_ERROR_EVENT = "ftx:query-error";
 function entry(key: string): Entry {
   let e = cache.get(key);
   if (!e) {
-    e = { data: undefined, error: null, loading: false, loaded: false, enabled: false, epoch: generation, listeners: new Set(), snapshot: { data: undefined, error: null, loading: false, loaded: false } };
+    e = { data: undefined, error: null, loading: false, loaded: false, enabled: false, epoch: generation, fetchedAt: 0, listeners: new Set(), snapshot: { data: undefined, error: null, loading: false, loaded: false } };
     cache.set(key, e);
   }
   return e;
@@ -60,6 +62,7 @@ function run(key: string) {
       if (startedAt !== e.epoch) return; // a different person signed in while this was in flight
       e.data = d;
       e.error = null;
+      e.fetchedAt = Date.now();
     })
     .catch((err) => {
       if (startedAt !== e.epoch) return;
@@ -116,6 +119,20 @@ export function invalidateAll() {
   }
 }
 
+/** Revalidate anything the user has been away from, so returning to a tab shows fresh data. */
+if (typeof window !== "undefined") {
+  window.addEventListener("focus", () => {
+    const now = Date.now();
+    for (const [k, e] of cache) if (e.listeners.size && e.enabled && e.loaded && now - e.fetchedAt > 15_000) run(k);
+  });
+}
+
+/** Ask the session provider to reload /me after the profile, business or permissions change. */
+export const SESSION_REFRESH_EVENT = "ftx:session-refresh";
+export function refreshSession() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_REFRESH_EVENT));
+}
+
 export interface QueryState<T> {
   data: T;
   loading: boolean;
@@ -137,7 +154,9 @@ export function useQuery<T>(key: (string | number | null | undefined | boolean)[
   const snap = useSyncExternalStore(subscribe, () => entry(k).snapshot);
 
   useEffect(() => {
-    if (enabled && !entry(k).loaded) run(k);
+    const e = entry(k);
+    // Show cached data instantly, but revalidate anything older than a few seconds.
+    if (enabled && (!e.loaded || Date.now() - e.fetchedAt > 5_000)) run(k);
   }, [k, enabled]);
 
   return {

@@ -3,7 +3,7 @@
  * delta, records the movement and raises low-stock alerts.
  */
 import { notify } from "../../core/activity-log.js";
-import { isDuplicateKey, one, type Db } from "../../core/db.js";
+import { isDuplicateKey, one, type Db, type Row } from "../../core/db.js";
 import { AppError, bad } from "../../core/errors.js";
 import { nowSql } from "../../core/time.js";
 import { n, uuid } from "../../core/values.js";
@@ -15,8 +15,8 @@ export const fmtQty = (q: number) => String(Math.round(q * 1000) / 1000);
  * Must run inside a transaction. Returns the quantity after.
  */
 export async function applyStock(db: Db, s: { orgId: string; branchId: string; productId: string; variantId?: string | null; delta: number; type: string;
-  reason?: string | null; refType?: string | null; refId?: string | null; actorId?: string | null; allowNegative?: boolean }): Promise<number> {
-  const p = await one(db, "SELECT * FROM products WHERE id = ? AND organization_id = ?", [s.productId, s.orgId]);
+  reason?: string | null; refType?: string | null; refId?: string | null; actorId?: string | null; allowNegative?: boolean; product?: Row }): Promise<number> {
+  const p = s.product ?? await one(db, "SELECT * FROM products WHERE id = ? AND organization_id = ?", [s.productId, s.orgId]);
   if (!p) throw bad("unknown_product", "Product not found.");
   if (p.unit === "job") return 0; // services are not stock-tracked
   const vkey = s.variantId ?? "";
