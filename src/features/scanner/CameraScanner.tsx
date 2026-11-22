@@ -106,7 +106,7 @@ export function CameraScanner({ onDetected, paused, className, allowManual = tru
                   const found = await detector.detect(v);
                   if (found[0]) hit(found[0].rawValue);
                 }
-              } catch { /* frame not ready — try the next one */ }
+              } catch { /* frame not ready - try the next one */ }
               timer = window.setTimeout(tick, 120);
             };
             void tick();
@@ -175,7 +175,7 @@ export function CameraScanner({ onDetected, paused, className, allowManual = tru
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 bg-gradient-to-t from-ink-900/90 to-transparent px-4 pb-3 pt-8 text-xs text-white">
           <span className="flex items-center gap-2 font-medium">
             <LuScanBarcode className={cn("size-4", state === "running" && !paused && !flash && "scanner-pulse text-rose-300")} />
-            {paused ? "Paused" : state === "running" ? "Scanning — hold the barcode steady" : "Starting camera…"}
+            {paused ? "Paused" : state === "running" ? "Scanning - hold the barcode steady" : "Starting camera…"}
           </span>
           {lastCode && <span className="num max-w-[45%] truncate rounded-full bg-white/10 px-2 py-1 font-mono">{lastCode}</span>}
         </div>

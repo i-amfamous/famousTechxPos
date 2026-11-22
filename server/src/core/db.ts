@@ -41,7 +41,7 @@ export async function createMysqlDb(url: string, ssl: boolean): Promise<Db> {
     supportBigNumbers: true,
   });
   // mysql2/promise's typings declare a promise connection here, but the event actually
-  // emits the callback connection — wrap it before using promise APIs.
+  // emits the callback connection - wrap it before using promise APIs.
   pool.on("connection", (c) => {
     const conn = c as unknown as { promise: () => { query: (sql: string) => Promise<unknown> } };
     void (async () => {

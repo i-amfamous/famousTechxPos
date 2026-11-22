@@ -57,7 +57,7 @@ export function PhoneScanPage() {
         <Button type="submit" variant="secondary" icon={<LuKeyboard className="size-4" />}>Send</Button>
       </form>
 
-      <h2 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wide text-ink-500">Sent to computer</h2>
+      <h2 className="mb-2 mt-6 text-sm font-medium text-ink-700">Sent to computer</h2>
       {sent.length === 0 ? (
         <p className="flex items-center gap-2 rounded-xl bg-white p-4 text-sm text-ink-500 ring-1 ring-ink-200"><LuSmartphone className="size-4" /> Scanned items will show here.</p>
       ) : (

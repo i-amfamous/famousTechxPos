@@ -35,8 +35,8 @@ export function Receipt({ data, className }: { data: ReceiptData; className?: st
         <dl className="space-y-1 text-[10px]">
           <Meta label="Receipt no." value={data.receiptNumber} strong />
           <Meta label="Date" value={formatDateTime(data.createdAt)} />
-          <Meta label="Served by" value={data.servedBy || "—"} />
-          <Meta label="Till" value={data.terminal || "—"} />
+          <Meta label="Served by" value={data.servedBy || "-"} />
+          <Meta label="Till" value={data.terminal || "-"} />
           {data.customer && <Meta label="Customer" value={data.customer} />}
         </dl>
 

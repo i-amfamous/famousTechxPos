@@ -24,7 +24,7 @@ export async function setMemberStatus(db: Db, actor: Actor, memberId: string, i:
   await db.run("UPDATE business_members SET status = ?, deactivated_at = ? WHERE id = ?", [i.status, i.status === "deactivated" ? nowSql() : null, memberId]);
   if (i.status !== "active") await revokeUserSessions(db, m.user_id); // instant sign-out everywhere
   const action = { active: "Reactivated employee", suspended: "Suspended employee", deactivated: "Deactivated employee" }[i.status]!;
-  await audit(db, { orgId: actor.orgId, actorId: actor.memberId }, "employee", action, `${m.full_name}${clean(i.reason) ? ` — ${clean(i.reason)}` : ""}`, { entityType: "member", entityId: memberId });
+  await audit(db, { orgId: actor.orgId, actorId: actor.memberId }, "employee", action, `${m.full_name}${clean(i.reason) ? ` - ${clean(i.reason)}` : ""}`, { entityType: "member", entityId: memberId });
 }
 
 export async function forceSignOut(db: Db, actor: Actor, memberId: string) {
@@ -49,9 +49,18 @@ export async function resetEmployeePassword(db: Db, actor: Actor, memberId: stri
     const ok = await sendBrandedMail(u.email, "Reset your Famous TechX POS password", {
       businessName: biz?.name as string | undefined,
       greeting: `Hi ${m.full_name},`,
-      title: "Your password was reset",
-      paragraphs: [`A manager at ${biz?.name ?? "your business"} reset your Famous TechX POS password. Choose a new one using the button below.`],
+      title: "Your manager reset your password",
+      paragraphs: [
+        `A manager at ${biz?.name ?? "your business"} has reset your Famous TechX POS password, so you'll need to choose a new one before your next shift.`,
+        "Don't worry - your sales history, shifts and settings are all untouched. Only your sign-in details are changing.",
+      ],
+      steps: [
+        "Tap the button below to open your personal password page.",
+        "Choose a strong new password (at least 8 characters, with upper and lower case letters and a number).",
+        "Sign in again. If you use a till, you'll set your 4-digit POS PIN the first time you log in.",
+      ],
       action: { label: "Choose a new password", url: link, note: "This link is valid for 1 hour and can only be used once." },
+      footnote: "If you didn't expect this, check with your manager before clicking. Your old password no longer works until you set a new one.",
     });
     if (ok) return { ok: true, emailed: u.email as string };
   }
@@ -71,8 +80,17 @@ export async function resendInvite(db: Db, actor: Actor, memberId: string) {
     businessName: biz?.name as string | undefined,
     greeting: `Hi ${m.full_name},`,
     title: `You're invited to ${biz?.name ?? "Famous TechX POS"}`,
-    paragraphs: [`You've been added to the team at ${biz?.name ?? "your business"}. Set your password to get started with Famous TechX POS.`],
-    action: { label: "Accept invitation", url: link, note: "This link is valid for 7 days and can only be used once." },
+    paragraphs: [
+      `Great news - ${actor.member.full_name} has added you to the team at ${biz?.name ?? "your business"} on Famous TechX POS.`,
+      "Everything you need to sell, track stock and hand over shifts is ready and waiting. Setting up your account takes about a minute.",
+    ],
+    steps: [
+      "Tap the button below to accept your invitation.",
+      "Create your own password (at least 8 characters, with upper and lower case letters and a number).",
+      "Sign in and set your 4-digit POS PIN the first time you use a till. You're ready to sell!",
+    ],
+    action: { label: "Accept my invitation", url: link, note: "This link is valid for 7 days and can only be used once." },
+    footnote: "If you weren't expecting this invitation, you can safely ignore this email - nothing changes until you accept.",
   });
   return { ok: true, emailed: ok ? (u.email as string) : undefined, inviteLink: ok ? undefined : link };
 }
@@ -101,7 +119,7 @@ export async function deleteEmployee(db: Db, actor: Actor, memberId: string, i: 
     await tx.run("UPDATE auth_tokens SET used_at = ? WHERE member_id = ? AND used_at IS NULL", [when, memberId]);
     await revokeMemberSessions(tx, m.user_id, actor.orgId);
     await audit(tx, { orgId: actor.orgId, actorId: actor.memberId }, "employee", "Deleted employee",
-      `${m.full_name} — ${clean(i.reason)}`, { entityType: "member", entityId: memberId });
+      `${m.full_name} - ${clean(i.reason)}`, { entityType: "member", entityId: memberId });
   });
 }
 

@@ -1,4 +1,4 @@
-# Render Blueprint — New → Blueprint → pick this repo. Fill the "sync: false" values in the dashboard.
+# Render Blueprint - New → Blueprint → pick this repo. Fill the "sync: false" values in the dashboard.
 services:
   - type: web
     name: famous-techx-pos-api

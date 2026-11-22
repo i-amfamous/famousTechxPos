@@ -121,7 +121,7 @@ export function EmployeeDetailPage() {
             pin: "They'll create a new PIN next time they use the POS.",
             password: e.email ? `A reset link will be emailed to ${e.email}.` : "A new temporary password will be shown once.",
             signout: "All their sessions on every device end now.",
-            delete: "Permanently removes their login and access. Their sales, shifts and records stay in your history with their name — nothing is erased. This can't be undone.",
+            delete: "Permanently removes their login and access. Their sales, shifts and records stay in your history with their name - nothing is erased. This can't be undone.",
           }[confirm]}
           confirmLabel={confirm === "delete" ? "Delete account" : "Confirm"}
           onConfirm={async (reason) => {
@@ -195,7 +195,7 @@ function ProfileTab({ e }: { e: Employee }) {
           { label: "Account status", value: <StatusBadge status={e.status} /> },
           { label: "POS PIN", value: <PinBadge e={e} /> },
           { label: "Sign-in", value: e.email ? "Email & password" : "Phone & password" },
-          { label: "Last sign-in", value: e.lastSignInAt ? formatDateTime(e.lastSignInAt) : "—" },
+          { label: "Last sign-in", value: e.lastSignInAt ? formatDateTime(e.lastSignInAt) : "-" },
         ]} />
       </Card>
     </div>
@@ -258,7 +258,7 @@ function PermissionsTab({ e }: { e: Employee }) {
                 </li>
               ))}
             </ul>
-          ) : <p className="text-sm text-ink-500">None — uses the role exactly.</p>}
+          ) : <p className="text-sm text-ink-500">None - uses the role exactly.</p>}
           {overrides.length > 0 && <Button size="sm" variant="ghost" className="mt-3" onClick={() => setOverrides([])}>Reset to role defaults</Button>}
         </Card>
       </div>
@@ -453,7 +453,7 @@ function SecurityTab({ e, onAction }: { e: Employee; onAction: (k: "suspend" | "
             {user.isOwner && !deleted && (
               <div className="flex items-center justify-between border-t border-rose-200 pt-4"><div><p className="text-sm font-medium text-rose-700">Delete account</p><p className="text-xs text-ink-500">Permanently removes their login. Their sales, shifts and records stay in your history.</p></div><Button variant="danger" icon={<LuTrash2 className="size-4" />} onClick={() => onAction("delete")}>Delete</Button></div>
             )}
-            <p className="flex items-center gap-2 text-xs text-ink-500"><LuShieldCheck className="size-4" /> Deleting an employee never erases their data — it only revokes their access. Only the owner can delete accounts.</p>
+            <p className="flex items-center gap-2 text-xs text-ink-500"><LuShieldCheck className="size-4" /> Deleting an employee never erases their data - it only revokes their access. Only the owner can delete accounts.</p>
           </div>
         </Card>
       ) : (

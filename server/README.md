@@ -1,4 +1,4 @@
-# Famous TechX POS — API server
+# Famous TechX POS - API server
 
 Node.js + Express + TypeScript API for the POS. Data lives in **TiDB Cloud** (MySQL-compatible). Email goes out over **SMTP**. Deploys to **Render** or **Railway**.
 
@@ -21,7 +21,7 @@ npm test             # 26 end-to-end tests, also on an in-memory database
    ```
 5. Start the server:
    ```bash
-   npm run dev          # http://localhost:8080 — check http://localhost:8080/health
+   npm run dev          # http://localhost:8080 - check http://localhost:8080/health
    ```
 6. In the website folder, set `VITE_API_URL=/api` in `.env` and run `npm run dev`. Open <http://localhost:5173/onboarding> to create the owner account and business.
 
@@ -31,9 +31,9 @@ Email is sent through **Brevo's SMTP relay**. In Brevo, open **SMTP & API → SM
 
 - `SMTP_HOST=smtp-relay.brevo.com`
 - `SMTP_PORT=587` (TLS; `465` also works)
-- `SMTP_USER` — the email you log into Brevo with
-- `SMTP_PASS` — the **SMTP key** (not the API key, not your Brevo password)
-- `MAIL_FROM` — a sender address/domain verified in Brevo, e.g. `"Famous TechX <no-reply@yourdomain.com>"`
+- `SMTP_USER` - the email you log into Brevo with
+- `SMTP_PASS` - the **SMTP key** (not the API key, not your Brevo password)
+- `MAIL_FROM` - a sender address/domain verified in Brevo, e.g. `"Famous TechX <no-reply@yourdomain.com>"`
 
 Without SMTP, nothing breaks: when you add an employee by email invite, the app shows the invite link for you to share yourself (for example on WhatsApp).
 
@@ -41,7 +41,7 @@ Without SMTP, nothing breaks: when you add an employee by email invite, the app 
 
 **Render:** the root `render.yaml` blueprint creates **two** services: this API (`rootDir: server`) and the static website. In Render choose **New → Blueprint**, select the repository, then fill in the `sync: false` values: `DATABASE_URL`, `APP_URL` (the website's public address), `CORS_ORIGINS` (if you use more than one domain), the SMTP values, and `VITE_API_URL` for the website (the full API origin). Tables are created automatically on each deploy (`preDeployCommand`). Use a paid instance: free instances sleep when idle, and tills need the API awake.
 
-**Railway:** create a service from the repository, set the **root directory** to `server`, and add these variables in the dashboard: `DATABASE_URL`, `APP_URL`, `NODE_ENV=production`, SMTP values, and optionally `CORS_ORIGINS`. `railway.json` builds the server, runs migrations before each deploy, and checks `/health`. Railway does not deploy the website — host `dist/` separately.
+**Railway:** create a service from the repository, set the **root directory** to `server`, and add these variables in the dashboard: `DATABASE_URL`, `APP_URL`, `NODE_ENV=production`, SMTP values, and optionally `CORS_ORIGINS`. `railway.json` builds the server, runs migrations before each deploy, and checks `/health`. Railway does not deploy the website - host `dist/` separately.
 
 `APP_URL` is **required in production**: the server exits at startup without it so invite links and CORS can never silently point at `localhost`. Do not set the website's `VITE_API_URL` to `/api` in production unless your host proxies both `/api` and `/ws` to this server; use the full origin (for example `https://famous-techx-pos-api.onrender.com`). Enable backups/PITR on your TiDB cluster before going live, and verify `GET /health` after every deploy.
 

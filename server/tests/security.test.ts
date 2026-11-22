@@ -101,7 +101,7 @@ describe("purchase receiving", () => {
     const [order] = await ok("get", "/purchase-orders", { token: S.owner });
     const item = order.lines[0].id;
 
-    // Three lines for the same item add up to 7, above the ordered 5 — must be rejected.
+    // Three lines for the same item add up to 7, above the ordered 5 - must be rejected.
     await err("over_received", "post", `/purchase-orders/${po.id}/receive`, {
       token: S.owner, body: { lines: [{ itemId: item, quantity: 3 }, { itemId: item, quantity: 2 }, { itemId: item, quantity: 2 }] },
     });

@@ -136,8 +136,8 @@ export function SaleDetailPage() {
         <div className="space-y-6">
           <Card>
             <DL cols={3} items={[
-              { label: "Served by", value: cashier ? <Link className="text-brand-700 hover:underline" to={`/employees/${cashier.id}`}>{cashier.fullName}</Link> : "—" },
-              { label: "Till · Branch", value: `${terminals.find((t) => t.id === sale.terminalId)?.name ?? "—"} · ${branches.find((b) => b.id === sale.branchId)?.name ?? ""}` },
+              { label: "Served by", value: cashier ? <Link className="text-brand-700 hover:underline" to={`/employees/${cashier.id}`}>{cashier.fullName}</Link> : "-" },
+              { label: "Till · Branch", value: `${terminals.find((t) => t.id === sale.terminalId)?.name ?? "-"} · ${branches.find((b) => b.id === sale.branchId)?.name ?? ""}` },
               { label: "Customer", value: customers.find((c) => c.id === sale.customerId)?.name ?? "Walk-in" },
             ]} />
           </Card>
@@ -149,7 +149,7 @@ export function SaleDetailPage() {
                 { key: "n", header: "Item", cell: (i) => <><p className="font-medium text-ink-900">{i.name}</p><p className="text-xs text-ink-500">{i.sku}{i.refundedQuantity ? ` · ${i.refundedQuantity} refunded` : ""}</p></> },
                 { key: "q", header: "Qty", align: "right", cell: (i) => i.quantity },
                 { key: "p", header: "Price", align: "right", cell: (i) => formatMoney(i.unitPrice) },
-                { key: "d", header: "Discount", align: "right", cell: (i) => (i.discount ? `−${formatMoney(i.discount)}` : "—") },
+                { key: "d", header: "Discount", align: "right", cell: (i) => (i.discount ? `−${formatMoney(i.discount)}` : "-") },
                 { key: "t", header: "Total", align: "right", cell: (i) => <span className="font-medium">{formatMoney(i.lineTotal ?? i.unitPrice * i.quantity - i.discount)}</span> },
               ]}
             />
@@ -179,9 +179,9 @@ export function SaleDetailPage() {
               <li className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-emerald-500" /><span><span className="font-medium">{cashier?.fullName ?? "Cashier"}</span> completed the sale · {formatDateTime(sale.createdAt)}</span></li>
               {sale.discountTotal > 0 && <li className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-violet-500" /><span>Discount of {formatMoney(sale.discountTotal)} given (see Activity log for approvals)</span></li>}
               {refunds.map((r) => (
-                <li key={r.id} className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-rose-500" /><span><span className="font-medium">{r.actorName}</span> refunded {formatMoney(r.amount)} by {methodLabel[r.method]} — “{r.reason}”. {r.restocked ? "Returned to stock." : "Not restocked."} {r.status === "pending" && <Badge tone="warning">Provider refund pending</Badge>} · {formatDateTime(r.createdAt)}</span></li>
+                <li key={r.id} className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-rose-500" /><span><span className="font-medium">{r.actorName}</span> refunded {formatMoney(r.amount)} by {methodLabel[r.method]} - “{r.reason}”. {r.restocked ? "Returned to stock." : "Not restocked."} {r.status === "pending" && <Badge tone="warning">Provider refund pending</Badge>} · {formatDateTime(r.createdAt)}</span></li>
               ))}
-              {sale.status === "voided" && <li className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-ink-400" /><span>Sale voided — stock returned.</span></li>}
+              {sale.status === "voided" && <li className="flex gap-3"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-ink-400" /><span>Sale voided - stock returned.</span></li>}
             </ol>
           </Card>
         </div>
@@ -221,7 +221,7 @@ function RefundModal({ open, onClose, sale, limit, requestApproval }: { open: bo
     setBusy(true);
     try {
       await actions.refundSale(sale.id, { items: sale.items.filter((i) => (qty[key(i)] ?? 0) > 0).map((i) => ({ saleItemId: i.id ?? "", quantity: qty[key(i)]! })), reason, restock, method, approvalId });
-      toast({ tone: "success", title: `Refunded ${formatMoney(amount)}`, body: method === "cash" ? "Give the customer their cash." : "Send the refund through the provider — it's marked pending." });
+      toast({ tone: "success", title: `Refunded ${formatMoney(amount)}`, body: method === "cash" ? "Give the customer their cash." : "Send the refund through the provider - it's marked pending." });
       onClose();
     } catch (e) {
       toast({ tone: "error", title: "Refund failed", body: (e as Error).message });
@@ -234,7 +234,7 @@ function RefundModal({ open, onClose, sale, limit, requestApproval }: { open: bo
       open={open}
       onClose={onClose}
       title="Refund items"
-      description={`${sale.receiptNumber} — the original sale is kept and linked to this refund.`}
+      description={`${sale.receiptNumber} - the original sale is kept and linked to this refund.`}
       size="lg"
       footer={
         <>
@@ -266,7 +266,7 @@ function RefundModal({ open, onClose, sale, limit, requestApproval }: { open: bo
           <Select label="Refund to" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
             {Object.entries(methodLabel).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </Select>
-          <div className="flex items-end pb-2"><Checkbox label="Items can be resold — return to stock" checked={restock} onChange={(e) => setRestock(e.target.checked)} /></div>
+          <div className="flex items-end pb-2"><Checkbox label="Items can be resold - return to stock" checked={restock} onChange={(e) => setRestock(e.target.checked)} /></div>
         </div>
         <Textarea label="Reason" required value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Faulty product, wrong item" />
         {over && amount > 0 && <Callout tone="warning" icon={<LuShieldCheck className="size-4" />}>{formatMoney(amount)} is above your refund limit{Number.isFinite(limit) ? ` of ${formatMoney(limit)}` : ""}. A manager will approve with their PIN.</Callout>}

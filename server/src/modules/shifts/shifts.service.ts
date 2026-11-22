@@ -129,7 +129,7 @@ export async function recordCashMovement(db: Db, actor: Actor, shiftId: string, 
   });
 }
 
-/** counts: { "200": 3, "50": 2, "0.5": 4 } — denomination → number of notes/coins. */
+/** counts: { "200": 3, "50": 2, "0.5": 4 } - denomination → number of notes/coins. */
 export async function closeShift(db: Db, actor: Actor, shiftId: string, i: { counts: Record<string, number>; note?: string | null; approvalId?: string | null }) {
   requirePerm(actor, "shift.open_close");
   return db.tx(async (tx) => {

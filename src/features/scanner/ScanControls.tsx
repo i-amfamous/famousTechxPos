@@ -11,7 +11,7 @@ import { useScanner } from "./ScannerProvider";
 
 /**
  * "Scan" button with every scan source. Put it on any screen that uses `useScan`.
- * USB/Bluetooth scanners need no setup — they work whenever the screen is open.
+ * USB/Bluetooth scanners need no setup - they work whenever the screen is open.
  */
 export function ScanButton({ label = "Scan", size = "md", variant = "secondary", className }: { label?: string; size?: "sm" | "md" | "lg"; variant?: "secondary" | "primary" | "accent"; className?: string }) {
   const s = useScanner();
@@ -29,7 +29,7 @@ export function ScanButton({ label = "Scan", size = "md", variant = "secondary",
           { label: s.phone.connected ? "Phone scanner connected" : "Use my phone as a scanner", icon: <LuSmartphone />, onClick: () => { s.startPhonePairing(); s.setPairingOpen(true); } },
           ...(s.phone.sessionId ? [{ label: "Disconnect phone", icon: <LuUnplug />, onClick: s.stopPhonePairing }] : []),
           "divider" as const,
-          { label: <span className="text-xs text-ink-500">USB & Bluetooth scanners work automatically — just scan.</span>, icon: <LuUsb />, onClick: () => {}, disabled: true },
+          { label: <span className="text-xs text-ink-500">USB & Bluetooth scanners work automatically - just scan.</span>, icon: <LuUsb />, onClick: () => {}, disabled: true },
         ]}
       />
     </>
@@ -73,7 +73,7 @@ export function ScannerWindows() {
         open={s.cameraOpen}
         onClose={() => s.setCameraOpen(false)}
         title="Scan with camera"
-        description="Hold the barcode inside the frame. The moving line shows it's scanning — each code is read and looked up."
+        description="Hold the barcode inside the frame. The moving line shows it's scanning - each code is read and looked up."
         size="md"
         footer={<Button onClick={() => s.setCameraOpen(false)}>Done</Button>}
       >
@@ -128,7 +128,7 @@ function ScanResultCard({ result, canManage, onOpenProduct }: { result: ScanResu
         ) : (
           <div>
             <p className="text-sm font-medium text-ink-800">No details found for this barcode</p>
-            <p className="mt-1 text-xs text-ink-500">You can still add it manually — we'll keep the code and let you fill in the rest.</p>
+            <p className="mt-1 text-xs text-ink-500">You can still add it manually - we'll keep the code and let you fill in the rest.</p>
           </div>
         )}
 
@@ -166,7 +166,7 @@ function PhonePairingModal() {
           <ol className="list-decimal space-y-2 pl-4 text-ink-700">
             <li>Open your phone's camera and point it at the QR code.</li>
             <li>Tap the link, then allow camera access.</li>
-            <li>Scan items with your phone — they appear on this screen.</li>
+            <li>Scan items with your phone - they appear on this screen.</li>
           </ol>
           <div className="flex items-center gap-2">
             {s.phone.connected ? <Badge tone="success" dot>Connected{s.phone.device ? ` · ${s.phone.device}` : ""}</Badge> : <Badge tone="info" dot>Waiting for phone…</Badge>}
@@ -182,7 +182,7 @@ function PhonePairingModal() {
       </div>
       <div className="mt-5 grid gap-2 rounded-xl bg-ink-50 p-4 text-xs text-ink-600 sm:grid-cols-2">
         <p className="flex gap-2"><LuBluetooth className="mt-0.5 size-4 shrink-0 text-brand-600" /> <span><b>Bluetooth scanner?</b> Pair it with this computer/tablet in system settings (it works like a keyboard). Then just scan.</span></p>
-        <p className="flex gap-2"><LuUsb className="mt-0.5 size-4 shrink-0 text-brand-600" /> <span><b>USB scanner?</b> Plug it in and scan — nothing to set up.</span></p>
+        <p className="flex gap-2"><LuUsb className="mt-0.5 size-4 shrink-0 text-brand-600" /> <span><b>USB scanner?</b> Plug it in and scan - nothing to set up.</span></p>
       </div>
     </Modal>
   );

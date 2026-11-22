@@ -1,4 +1,4 @@
-// POST { action, organization_id, ... } — employee account operations that need the Auth admin API.
+// POST { action, organization_id, ... } - employee account operations that need the Auth admin API.
 // The caller must be signed in WITH A PASSWORD and hold employees.manage; all DB changes go through
 // RPCs that re-check permissions server-side.
 //

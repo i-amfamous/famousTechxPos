@@ -18,10 +18,10 @@ The website has two modes:
 ## 1. Try it in 2 minutes (no database needed)
 
 ```bash
-# terminal 1 — the API on a throw-away in-memory database
+# terminal 1 - the API on a throw-away in-memory database
 cd server && npm install && npm run dev:memory
 
-# terminal 2 — the website
+# terminal 2 - the website
 npm install
 cp .env.example .env        # VITE_API_URL=/api
 npm run dev                 # open http://localhost:5173/onboarding
@@ -34,17 +34,17 @@ Create the owner account and business, add a product, register this computer as 
 `VITE_API_URL` is **baked into the bundle at build time**. If it is empty, the app silently runs on sample data. `npm run build` now refuses to produce that bundle unless you set `ALLOW_DEMO_BUILD=1` deliberately.
 
 1. **Database:** create a TiDB Cloud Serverless cluster, put its connection string in `server/.env` as `DATABASE_URL`, and run `cd server && npm run migrate`. The `famous_pos` database and tables are created for you. Ensure the cluster has automated backups/PITR enabled before taking real payments. See [server/README.md](server/README.md#1-set-up-tidb-cloud-about-5-minutes).
-2. **Email (Brevo):** in Brevo go to **SMTP & API → SMTP**, generate an SMTP key and verify a sender address, then add to `server/.env`: `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USER` (your Brevo login email), `SMTP_PASS` (the SMTP key — not the API key) and `MAIL_FROM` (the verified sender, e.g. `Famous TechX <no-reply@yourdomain.com>`). Without SMTP the app still works — invite links are shown on screen for you to share manually.
+2. **Email (Brevo):** in Brevo go to **SMTP & API → SMTP**, generate an SMTP key and verify a sender address, then add to `server/.env`: `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USER` (your Brevo login email), `SMTP_PASS` (the SMTP key - not the API key) and `MAIL_FROM` (the verified sender, e.g. `Famous TechX <no-reply@yourdomain.com>`). Without SMTP the app still works - invite links are shown on screen for you to share manually.
 3. **API server:** deploy `server/` to Render using the included `render.yaml` blueprint, or to Railway with `server/railway.json`. Set these variables on the host (secrets are never committed):
-   - `DATABASE_URL` — the TiDB connection string
-   - `APP_URL` — the **public website address** (required in production; invite/reset links and CORS depend on it)
-   - `CORS_ORIGINS` — extra origins if you use both a custom domain and an `onrender.com` URL
+   - `DATABASE_URL` - the TiDB connection string
+   - `APP_URL` - the **public website address** (required in production; invite/reset links and CORS depend on it)
+   - `CORS_ORIGINS` - extra origins if you use both a custom domain and an `onrender.com` URL
    - `NODE_ENV=production` (set in `render.yaml`; set it manually on Railway)
    - SMTP values above
 4. **Website:** copy `.env.production.example` to `.env.production` and set `VITE_API_URL` to the **full public API origin** (for example `https://famous-techx-pos-api.onrender.com`). Do **not** use `/api` in production unless your host proxies both `/api` and `/ws`. Run `npm run build` and host `dist/`. The Render blueprint includes a static site with a rewrite of all paths to `index.html`; if you host elsewhere (Netlify, Vercel, …), add the same SPA rewrite.
 5. **Verify before opening the tills:**
    - `curl https://<your-api>/health` returns `{"ok":true,...}`.
-   - Sign in at the website, add a product, then register a till in **Settings → Tills** and sell something. Confirm the sale appears in **Sales** after a full page reload — that proves data is coming from the database, not sample data.
+   - Sign in at the website, add a product, then register a till in **Settings → Tills** and sell something. Confirm the sale appears in **Sales** after a full page reload - that proves data is coming from the database, not sample data.
    - Open the site over HTTPS; browsers only allow camera scanning on HTTPS (or localhost). Phone scanning also needs the full API origin above.
    - Check the server logs for `APP_URL` / `DATABASE_URL` startup errors.
 
@@ -92,7 +92,7 @@ Cameras only work on **HTTPS** or `localhost`. To test with a phone on your loca
 src/
   app/session.tsx          who is signed in, business, permissions, branch, till, PIN user, shift
   lib/http.ts              API client (session + till credentials, errors, demo switch)
-  lib/errors.ts            AppError — messages that are safe to show staff
+  lib/errors.ts            AppError - messages that are safe to show staff
   lib/query.ts             small cache: dedupes requests, refetches after changes, clears on sign-out
   services/api/            the data layer screens use
     queries.ts             use…() read hooks
@@ -102,7 +102,7 @@ src/
   features/<module>/       screens (pos, products, inventory, employees, sales, …)
   components/ui/           design system
   mock/data.ts             demo data
-server/                    API server — architecture, security model and endpoints in server/README.md
+server/                    API server - architecture, security model and endpoints in server/README.md
 ```
 
 ## 7. Notes and limits

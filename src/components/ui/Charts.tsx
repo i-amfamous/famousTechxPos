@@ -1,5 +1,5 @@
 /**
- * Lightweight SVG charts (no dependency). Swap for Recharts later if you prefer —
+ * Lightweight SVG charts (no dependency). Swap for Recharts later if you prefer -
  * the props are just `{ label, value }[]`.
  */
 import { useState } from "react";
@@ -47,7 +47,7 @@ export function BarChart({ data, height = 220, format = formatMoney }: { data: {
   );
 }
 
-/** Horizontal share bars — good for payment-method mix / top products. */
+/** Horizontal share bars - good for payment-method mix / top products. */
 export function ShareBars({ data, format = formatMoney }: { data: { label: string; value: number; color?: string }[]; format?: (n: number) => string }) {
   const total = data.reduce((s, d) => s + d.value, 0) || 1;
   return (

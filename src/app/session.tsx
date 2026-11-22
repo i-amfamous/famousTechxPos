@@ -72,7 +72,7 @@ const DEVICE_QUERIES = ["roster"];
 
 const placeholderUser: Employee = { id: "", fullName: "", displayName: "", phone: "", employeeCode: "", roleId: "", branchIds: [], status: "active", hasPin: false, hireDate: "", avatarColor: "bg-brand-600", overrides: [] };
 const placeholderRole: Role = { id: "", key: "none", name: "", description: "", isSystem: true, memberCount: 0, limits: { maxDiscountPercent: 0, maxRefundAmount: 0, allowNoSale: false }, permissions: [] };
-const placeholderBranch: Branch = { id: "", name: "—", address: "", phone: "", status: "active" };
+const placeholderBranch: Branch = { id: "", name: "-", address: "", phone: "", status: "active" };
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   return DEMO ? <DemoSession>{children}</DemoSession> : <LiveSession>{children}</LiveSession>;
@@ -110,7 +110,7 @@ function DemoSession({ children }: { children: ReactNode }) {
 }
 
 /* ═════════════ Live (API server) ═════════════ */
-/** `GET /me` — everything the app needs to know about the signed-in person. */
+/** `GET /me` - everything the app needs to know about the signed-in person. */
 interface MeResponse {
   user: { id: string; email: string | null; phone: string | null; fullName: string };
   mustChangePassword: boolean;
@@ -168,7 +168,7 @@ function LiveSession({ children }: { children: ReactNode }) {
   const orgId = me?.business?.id ?? "";
   const rolesQ = useQuery(["roles", orgId], () => http.get<Role[]>("/roles"), [] as Role[], !!orgId);
   const branchesQ = useQuery(["branches", orgId], () => http.get<Branch[]>("/branches"), [] as Branch[], !!orgId);
-  // A locked till shows its roster using the device token alone — nobody needs to be signed in.
+  // A locked till shows its roster using the device token alone - nobody needs to be signed in.
   const rosterQ = useQuery(["roster", link?.token ?? ""], () => http.get<RosterResponse>("/terminal/roster"), null as RosterResponse | null, !!link);
 
   const terminal: Terminal | null = rosterQ.data

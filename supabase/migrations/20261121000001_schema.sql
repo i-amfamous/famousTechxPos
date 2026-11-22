@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════════════════════
---  Famous TechX POS — core schema
+--  Famous TechX POS - core schema
 --  Money: numeric(14,2). Quantities: numeric(12,3). Every business-owned row
 --  carries organization_id. Completed sales, payments and stock movements are
 --  append-only; corrections are made with refunds / voids / adjustments.

@@ -78,7 +78,7 @@ export async function verifyMail(): Promise<{ ok: boolean; message: string }> {
       const r = await brevoFetch("/account");
       if (r.ok) return { ok: true, message: `Brevo API accepted the key (account ${r.body.email ?? "unknown"}).` };
       const hint = /unrecognised IP|authorised_ips/i.test(r.body.message ?? "")
-        ? " Brevo's IP allowlist is blocking this machine — add it in Brevo → Security → Authorised IPs." : "";
+        ? " Brevo's IP allowlist is blocking this machine - add it in Brevo → Security → Authorised IPs." : "";
       return { ok: false, message: `Brevo API ${r.status}: ${r.body.message ?? "verification failed"}.${hint}` };
     } catch (e) {
       return { ok: false, message: `Brevo API error: ${(e as Error).message}` };
@@ -101,7 +101,7 @@ export async function verifyMail(): Promise<{ ok: boolean; message: string }> {
 export async function sendMail(to: string, subject: string, text: string, html?: string): Promise<boolean> {
   if (captureOnly) { outbox.push({ to, subject, text }); return true; }
   if (!mailConfigured()) {
-    console.warn(`[mail] not configured — not sending "${subject}" to ${to}`);
+    console.warn(`[mail] not configured - not sending "${subject}" to ${to}`);
     return false;
   }
   try {

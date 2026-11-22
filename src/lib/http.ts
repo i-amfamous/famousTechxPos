@@ -5,8 +5,8 @@
  *  - `VITE_API_URL` unset → DEMO mode: the app runs on sample data and never calls the network.
  *
  * Two credentials live on a device:
- *  - the session token (who is signed in) — sent as `Authorization: Bearer …`
- *  - the till token (this device is a registered till) — sent as `X-Terminal-Token`
+ *  - the session token (who is signed in) - sent as `Authorization: Bearer …`
+ *  - the till token (this device is a registered till) - sent as `X-Terminal-Token`
  */
 import { AppError, toAppError } from "./errors";
 

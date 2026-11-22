@@ -47,7 +47,7 @@ export function EmployeesPage() {
       (e.fullName + e.employeeCode + (e.email ?? "") + e.phone).toLowerCase().includes(search.toLowerCase()),
   );
 
-  const roleName = (id: string) => roles.find((r) => r.id === id)?.name ?? "—";
+  const roleName = (id: string) => roles.find((r) => r.id === id)?.name ?? "-";
 
   const columns: Column<Employee>[] = [
     {
@@ -102,7 +102,7 @@ export function EmployeesPage() {
     reactivate: { title: `Reactivate ${confirm.e.fullName}?`, message: "They'll be able to sign in again with their existing role and branches.", label: "Reactivate", reason: false },
     pin: { title: `Reset ${confirm.e.displayName}'s PIN?`, message: "Their current PIN stops working. They'll create a new one the next time they tap their name on the POS.", label: "Reset PIN", reason: false },
     signout: { title: `Sign ${confirm.e.displayName} out everywhere?`, message: "Ends all their back-office and POS sessions right away.", label: "Sign out", reason: false },
-    delete: { title: `Delete ${confirm.e.fullName}'s account?`, message: "Permanently removes their login and access. Their sales, shifts and records stay in your history with their name — nothing is erased. This can't be undone.", label: "Delete account", reason: true },
+    delete: { title: `Delete ${confirm.e.fullName}'s account?`, message: "Permanently removes their login and access. Their sales, shifts and records stay in your history with their name - nothing is erased. This can't be undone.", label: "Delete account", reason: true },
   }[confirm.kind];
 
   return (
@@ -296,7 +296,7 @@ export function AddEmployeeDrawer({ open, onClose }: { open: boolean; onClose: (
               <Input label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} hint="They'll get a link to set their own password." />
             ) : (
               <>
-                <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} hint="Optional — staff without email sign in with their phone number." />
+                <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} hint="Optional - staff without email sign in with their phone number." />
                 <Callout tone="info">You'll see a temporary password once. They must change it at first sign-in.</Callout>
               </>
             )}

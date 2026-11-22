@@ -15,7 +15,7 @@ export default defineConfig(({ command, mode }) => {
   // that silently runs on sample data. ALLOW_DEMO_BUILD=1 is for an intentional demo bundle.
   if (command === "build" && mode === "production" && !apiUrl && process.env.ALLOW_DEMO_BUILD !== "1") {
     throw new Error(
-      "VITE_API_URL is required for a production build — copy .env.production.example to .env.production and set the API URL. " +
+      "VITE_API_URL is required for a production build - copy .env.production.example to .env.production and set the API URL. " +
       "Set ALLOW_DEMO_BUILD=1 only if you intentionally want a demo-data bundle.",
     );
   }

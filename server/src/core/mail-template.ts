@@ -13,6 +13,8 @@ export interface BrandedMailInput {
   greeting: string;
   title: string;
   paragraphs: string[];
+  /** Short numbered "what happens next" list, rendered as a soft panel in the email. */
+  steps?: string[];
   action?: { label: string; url: string; note?: string };
   footnote?: string;
 }
@@ -42,6 +44,21 @@ export function brandedMail(i: BrandedMailInput): { html: string; text: string }
   const appUrl = config.appUrl || "https://famoustechxpos.onrender.com";
   const business = i.businessName?.trim();
   const paragraphs = i.paragraphs.filter(Boolean).map((p) => `<p style="margin:0 0 16px;font-family:Arial,sans-serif;font-size:15px;line-height:1.65;color:#37374a;">${esc(p)}</p>`).join("");
+
+  const steps = (i.steps ?? []).filter(Boolean);
+  const stepsHtml = steps.length
+    ? `<tr><td style="padding:2px 44px 8px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f5ff;border-radius:12px;">
+          <tr><td style="padding:18px 20px;font-family:Arial,sans-serif;">
+            <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:${INDIGO};">What happens next</p>
+            ${steps.map((s, idx) => `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px;"><tr>
+              <td style="width:24px;height:24px;border-radius:50%;background:${INDIGO};text-align:center;vertical-align:middle;font-size:12px;font-weight:700;color:#ffffff;line-height:24px;">${idx + 1}</td>
+              <td style="padding-left:10px;font-size:13px;line-height:1.55;color:#37374a;">${esc(s)}</td>
+            </tr></table>`).join("")}
+          </td></tr>
+        </table>
+      </td></tr>`
+    : "";
 
   const actionHtml = i.action
     ? `<tr><td style="padding:26px 44px 8px;">
@@ -76,13 +93,14 @@ export function brandedMail(i: BrandedMailInput): { html: string; text: string }
           <h1 style="margin:0 0 18px;font-family:Arial,sans-serif;font-size:24px;line-height:1.3;color:${INK};font-weight:700;">${esc(i.title)}</h1>
           ${paragraphs}
         </td></tr>
+        ${stepsHtml}
         ${actionHtml}
         ${footnoteHtml}
         <tr><td style="padding:28px 44px 0;"><div style="height:1px;background:#e0e0ea;font-size:0;line-height:0;">&nbsp;</div></td></tr>
         <!-- Footer -->
         <tr><td style="padding:18px 44px 32px;font-family:Arial,sans-serif;font-size:11px;line-height:1.7;color:${MUTED};">
           <p style="margin:0 0 6px;font-weight:700;color:${INK};font-size:12px;">${BRAND}</p>
-          <p style="margin:0;">${business ? `Sent on behalf of ${esc(business)}. ` : ""}If you weren't expecting this message, you can safely ignore it — no changes have been made to your account.</p>
+          <p style="margin:0;">${business ? `Sent on behalf of ${esc(business)}. ` : ""}If you weren't expecting this message, you can safely ignore it - no changes have been made to your account.</p>
           <p style="margin:8px 0 0;"><a href="${esc(appUrl)}" style="color:${INDIGO};text-decoration:none;">${esc(appUrl)}</a></p>
         </td></tr>
       </table>
@@ -100,12 +118,14 @@ export function brandedMail(i: BrandedMailInput): { html: string; text: string }
     "",
     ...i.paragraphs.filter(Boolean),
     "",
+    ...(steps.length ? ["What happens next:", ...steps.map((s, idx) => `${idx + 1}. ${s}`)] : []),
+    "",
     i.action ? `${i.action.label}: ${i.action.url}` : "",
     i.action?.note ? `(${i.action.note})` : "",
     "",
     i.footnote || "",
     "",
-    `— ${BRAND}`,
+    `- ${BRAND}`,
     business ? `Sent on behalf of ${business}.` : "",
     `If you weren't expecting this message, you can safely ignore it. ${appUrl}`,
   ].filter((line) => line !== "").join("\n");

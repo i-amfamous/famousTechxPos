@@ -138,7 +138,7 @@ export function PosPage() {
     setLines((ls) => {
       const ex = ls.find((l) => (l.variantId ? `${l.productId}:${l.variantId}` : l.productId) === lineId);
       if (ex) return ls.map((l) => (l === ex ? { ...l, quantity: l.quantity + 1 } : l));
-      return [...ls, { productId: p.id, variantId: v?.id, name: v ? `${p.name} — ${v.label}` : p.name, sku: v?.sku ?? p.sku, unitPrice: p.sellingPrice, quantity: 1, discount: 0 }];
+      return [...ls, { productId: p.id, variantId: v?.id, name: v ? `${p.name} - ${v.label}` : p.name, sku: v?.sku ?? p.sku, unitPrice: p.sellingPrice, quantity: 1, discount: 0 }];
     });
   };
   const tryAdd = (p: Product) => { try { add(p); } catch { /* toast already shown */ } };

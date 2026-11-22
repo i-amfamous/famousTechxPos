@@ -10,7 +10,7 @@ export const mapSale = (s: Row, items: Row[], payments: Row[]) => ({
   id: s.id, receiptNumber: s.receipt_number, createdAt: iso(s.created_at), cashierId: s.cashier_id, terminalId: s.terminal_id ?? "",
   shiftId: s.shift_id ?? "", branchId: s.branch_id, customerId: s.customer_id ?? undefined, status: s.status,
   items: items.map((i) => ({ id: i.id, name: i.name_snapshot, sku: i.sku_snapshot, quantity: n(i.quantity), unitPrice: n(i.unit_price), discount: n(i.discount), lineTotal: n(i.line_total), refundedQuantity: n(i.refunded_quantity) })),
-  payments: payments.map((p) => ({ method: p.method, amount: n(p.amount), reference: p.provider_reference ?? undefined })),
+  payments: payments.map((p) => ({ method: p.method, amount: n(p.amount), reference: p.provider_reference ?? undefined, status: String(p.status ?? "") })),
   subtotal: n(s.subtotal), discountTotal: n(s.discount_total), taxTotal: n(s.tax_total), total: n(s.total), changeDue: n(s.change_due), refundedTotal: n(s.refunded_total),
 });
 
@@ -34,13 +34,15 @@ export async function saleReceipt(db: Db, actor: Actor, saleId: string) {
   const settings = await getSettings(db, actor.orgId);
   const items = await db.all("SELECT * FROM sale_items WHERE sale_id = ? ORDER BY name_snapshot", [saleId]);
   const pays = await db.all("SELECT * FROM payments WHERE sale_id = ? ORDER BY created_at", [saleId]);
+  const notices = await db.all("SELECT message FROM momo_requests WHERE sale_id = ? ORDER BY created_at", [saleId]);
   return {
     saleId: s.id, receiptNumber: s.receipt_number, createdAt: iso(s.created_at), servedBy: m?.display_name ?? "", terminal: t?.name ?? "", branch: br?.name ?? "",
     customer: c?.name ?? undefined,
     business: { name: biz?.name ?? "", phone: biz?.phone ?? undefined, tin: biz?.tin ?? undefined, address: biz?.address ?? undefined, footer: String(settings.receipt_footer ?? "") },
     items: items.map((i) => ({ name: i.name_snapshot, quantity: n(i.quantity), unitPrice: n(i.unit_price), discount: n(i.discount) })),
     subtotal: n(s.subtotal), discountTotal: n(s.discount_total), taxTotal: n(s.tax_total), total: n(s.total),
-    payments: pays.map((p) => ({ method: p.method, amount: n(p.amount), reference: p.provider_reference ?? undefined })),
+    payments: pays.map((p) => ({ method: p.method, amount: n(p.amount), reference: p.provider_reference ?? undefined, status: String(p.status ?? "") })),
+    paymentNotices: notices.map((r) => String(r.message ?? "")).filter(Boolean),
     change: n(s.change_due), status: s.status,
   };
 }

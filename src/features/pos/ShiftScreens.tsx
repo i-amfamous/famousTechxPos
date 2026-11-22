@@ -180,7 +180,7 @@ export function CloseShiftPage() {
               !touched ? "bg-ink-50 text-ink-500" : variance === 0 ? "bg-emerald-50 text-emerald-800" : needsApproval ? "bg-rose-50 text-rose-800" : "bg-amber-50 text-amber-800",
             )}>
               <span className="text-sm font-medium">{!touched ? "Variance" : variance === 0 ? "Balanced" : variance > 0 ? "Over" : "Short"}</span>
-              <span className="num text-xl font-bold">{touched ? `${variance > 0 ? "+" : ""}${formatMoney(variance)}` : "—"}</span>
+              <span className="num text-xl font-bold">{touched ? `${variance > 0 ? "+" : ""}${formatMoney(variance)}` : "-"}</span>
             </div>
           </Card>
 

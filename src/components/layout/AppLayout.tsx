@@ -193,7 +193,7 @@ export function AppLayout() {
         </main>
         {demo && (
           <footer className="px-6 pb-4 text-center text-xs text-ink-400">
-            <Badge tone="warning">Demo mode · sample data — set VITE_API_URL in .env to go live</Badge>
+            <Badge tone="warning">Demo mode · sample data - set VITE_API_URL in .env to go live</Badge>
           </footer>
         )}
       </div>

@@ -32,7 +32,7 @@ export function CustomersPage() {
                 { key: "n", header: "Customer", cell: (c) => <div className="flex items-center gap-3"><Avatar name={c.name} color="bg-ink-500" size="sm" /><div><p className="font-medium text-ink-900">{c.name}</p><p className="text-xs text-ink-500">{c.email ?? ""}</p></div></div> },
                 { key: "p", header: "Phone", cell: (c) => c.phone },
                 { key: "v", header: "Visits", align: "right", hideBelow: "sm", cell: (c) => c.visits },
-                { key: "l", header: "Last visit", hideBelow: "md", cell: (c) => (c.lastVisit ? timeAgo(c.lastVisit) : "—") },
+                { key: "l", header: "Last visit", hideBelow: "md", cell: (c) => (c.lastVisit ? timeAgo(c.lastVisit) : "-") },
                 { key: "s", header: "Total spend", align: "right", cell: (c) => <span className="font-medium">{formatMoney(c.totalSpend)}</span> },
               ]}
             />
@@ -85,7 +85,7 @@ export function CustomerDetailPage() {
         <StatCard label="Average spend" value={formatMoney(c.totalSpend / Math.max(1, c.visits))} />
       </div>
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card><CardHeader title="Details" /><DL cols={1} items={[{ label: "Phone", value: c.phone }, { label: "Email", value: c.email ?? "—" }, { label: "Address", value: c.address ?? "—" }, { label: "Notes", value: c.notes ?? "—" }]} /></Card>
+        <Card><CardHeader title="Details" /><DL cols={1} items={[{ label: "Phone", value: c.phone }, { label: "Email", value: c.email ?? "-" }, { label: "Address", value: c.address ?? "-" }, { label: "Notes", value: c.notes ?? "-" }]} /></Card>
         <Card padded={false} className="lg:col-span-2">
           <div className="px-5 pt-5"><h3 className="font-semibold">Purchase history</h3></div>
           <div className="mt-3">

@@ -5,7 +5,7 @@ export const config = {
   port: Number(env.PORT ?? 8080),
   databaseUrl: env.DATABASE_URL ?? "",
   databaseSsl: (env.DATABASE_SSL ?? "true") !== "false",
-  /** Public URL of the web app — used in invite / reset links and for CORS. Required in production. */
+  /** Public URL of the web app - used in invite / reset links and for CORS. Required in production. */
   appUrl: (env.APP_URL ?? (env.NODE_ENV === "production" ? "" : "http://localhost:5173")).replace(/\/$/, ""),
   /** Extra allowed origins for CORS, comma separated (e.g. a LAN address for phones). */
   corsOrigins: (env.CORS_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
@@ -21,4 +21,27 @@ export const config = {
   upcItemDbKey: env.UPCITEMDB_KEY ?? "",
   /** Set to "false" to disable online barcode lookups. */
   barcodeOnline: (env.BARCODE_ONLINE ?? "true") !== "false",
+  /** Mobile money request-to-pay providers. Empty credentials mean "record as pending" instead of failing checkout. */
+  momo: {
+    callbackUrl: env.MOMO_CALLBACK_URL ?? "",
+    mtn: {
+      baseUrl: (env.MTN_MOMO_BASE_URL ?? "").replace(/\/$/, ""),
+      apiUser: env.MTN_MOMO_API_USER ?? "",
+      apiKey: env.MTN_MOMO_API_KEY ?? "",
+      subscriptionKey: env.MTN_MOMO_SUBSCRIPTION_KEY ?? "",
+      targetEnv: env.MTN_MOMO_TARGET_ENV ?? "sandbox",
+    },
+    telecel: {
+      baseUrl: (env.TELECEL_CASH_BASE_URL ?? "").replace(/\/$/, ""),
+      apiKey: env.TELECEL_CASH_API_KEY ?? "",
+      merchantId: env.TELECEL_CASH_MERCHANT_ID ?? "",
+      path: env.TELECEL_CASH_PATH ?? "/api/v1/request-to-pay",
+    },
+    at: {
+      baseUrl: (env.AT_MONEY_BASE_URL ?? "").replace(/\/$/, ""),
+      apiKey: env.AT_MONEY_API_KEY ?? "",
+      merchantId: env.AT_MONEY_MERCHANT_ID ?? "",
+      path: env.AT_MONEY_PATH ?? "/api/v1/request-to-pay",
+    },
+  },
 };

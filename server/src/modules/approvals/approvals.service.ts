@@ -51,7 +51,7 @@ export async function approveAction(db: Db, actor: Actor, i: { terminalId?: stri
   await db.run("INSERT INTO approvals (id, organization_id, terminal_id, action, amount, detail, requested_by, approved_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
     [id, actor.orgId, terminalId ?? null, i.action, i.amount ?? null, i.detail ?? null, actor.memberId, ap.id, nowSql()]);
   await audit(db, { orgId: actor.orgId, actorId: ap.id }, "approval", `Approved ${i.action.replace(/_/g, " ")}`,
-    `${i.detail ?? ""} — requested by ${actor.member.full_name}`, { amount: i.amount ?? null, terminalId: terminalId ?? null, entityType: "approval", entityId: id });
+    `${i.detail ?? ""} - requested by ${actor.member.full_name}`, { amount: i.amount ?? null, terminalId: terminalId ?? null, entityType: "approval", entityId: id });
   return { approvalId: id };
 }
 

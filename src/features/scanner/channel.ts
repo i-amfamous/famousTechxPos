@@ -50,7 +50,7 @@ function openSocket(sessionId: string, role: "till" | "phone", onMessage: (m: Sc
     socket.onopen = () => {
       attempt = 0;
       while (outbox.length) socket!.send(outbox.shift()!);
-      onConnection?.(true); // every reconnect, not just the first — the phone must re-announce itself
+      onConnection?.(true); // every reconnect, not just the first - the phone must re-announce itself
     };
     socket.onmessage = (e) => {
       try { const m: unknown = JSON.parse(String(e.data)); if (isScanMessage(m)) onMessage(m); } catch { /* ignore junk */ }

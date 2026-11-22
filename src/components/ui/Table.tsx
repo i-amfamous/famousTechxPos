@@ -68,7 +68,7 @@ export function DataTable<T>({
   );
 }
 
-/** Pagination footer — LOGIC: wire to server-side paging. */
+/** Pagination footer - LOGIC: wire to server-side paging. */
 export function Pager({ total, page = 1, pageSize = 25 }: { total: number; page?: number; pageSize?: number }) {
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);

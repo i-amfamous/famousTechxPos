@@ -96,7 +96,7 @@ export function PinPad({
           </>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-ink-400">
-            <LuLockKeyhole className="size-3.5" /> {disabled ? "PIN locked — ask a manager" : "Enter your 4-digit PIN"}
+            <LuLockKeyhole className="size-3.5" /> {disabled ? "PIN locked - ask a manager" : "Enter your 4-digit PIN"}
           </span>
         )}
       </div>

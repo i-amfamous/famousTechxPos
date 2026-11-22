@@ -29,6 +29,14 @@ describe("branded email letterhead", () => {
     assert.match(text, /Kwame's Shop/);
   });
 
+  it("renders a numbered 'what happens next' panel and includes it in plain text", () => {
+    const { html, text } = brandedMail({ ...sample, steps: ["Open the link", "Choose <strong>a password</strong>", "Sign in"] });
+    assert.match(html, /What happens next/);
+    assert.match(html, /Open the link/);
+    assert.match(html, /Choose &lt;strong&gt;a password&lt;\/strong&gt;/);
+    assert.match(text, /What happens next:\n1\. Open the link\n2\. Choose <strong>a password<\/strong>\n3\. Sign in/);
+  });
+
   it("escapes HTML injected via names and links", () => {
     const { html } = brandedMail({ ...sample, greeting: "Hi <script>alert(1)</script>,", title: `Welcome & "join"` });
     assert.doesNotMatch(html, /<script>/);

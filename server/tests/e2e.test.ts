@@ -201,14 +201,22 @@ describe("selling", () => {
 
   it("validates payments and stock", async () => {
     const base = { terminalId: S.tillId, lines: [{ productId: S.p2, quantity: 1 }] };
-    await err("payment_short", "post", "/checkout", { token: S.cashier, body: { ...base, idempotencyKey: "k-2", payments: [{ method: "momo", amount: 10 }] } });
-    await err("overpaid_non_cash", "post", "/checkout", { token: S.cashier, body: { ...base, idempotencyKey: "k-3", payments: [{ method: "momo", amount: 50 }] } });
+    await err("payment_short", "post", "/checkout", { token: S.cashier, body: { ...base, idempotencyKey: "k-2", payments: [{ method: "momo", amount: 10, phone: "0241234567" }] } });
+    await err("overpaid_non_cash", "post", "/checkout", { token: S.cashier, body: { ...base, idempotencyKey: "k-3", payments: [{ method: "momo", amount: 50, phone: "0241234567" }] } });
     await err("insufficient_stock", "post", "/checkout", { token: S.cashier, body: { terminalId: S.tillId, idempotencyKey: "k-4", lines: [{ productId: S.p1, quantity: 99 }], payments: [{ method: "card", amount: 99 * 1999 }] } });
     // nothing was written by the failed sale
     const list = await ok("get", `/products?branchId=${S.branch}`, { token: S.cashier });
     assert.equal(list.find((p: any) => p.id === S.p1).stock, 9);
+    // a MoMo number without a valid Ghana prefix is rejected before the sale is saved
+    await err("invalid_momo_number", "post", "/checkout", { token: S.cashier, body: { ...base, idempotencyKey: "k-momo-bad", payments: [{ method: "momo", amount: 10, phone: "abc" }] } });
     // services aren't stock-tracked
-    await ok("post", "/checkout", { token: S.cashier, body: { terminalId: S.tillId, idempotencyKey: "k-5", lines: [{ productId: S.p3, quantity: 1 }], payments: [{ method: "momo", amount: 250, reference: "MM123" }] } });
+    await ok("post", "/checkout", { token: S.cashier, body: { terminalId: S.tillId, idempotencyKey: "k-5", lines: [{ productId: S.p3, quantity: 1 }], payments: [{ method: "momo", amount: 250, reference: "MM123", phone: "0241234567" }] } });
+    // every completed sale records its customer details: the MoMo number became a customer record
+    const custs = await ok("get", "/customers", { token: S.cashier });
+    const auto = custs.find((c: any) => c.phone === "0241234567");
+    assert.ok(auto, "a MoMo sale should add the customer to customer data");
+    assert.equal(auto.visits, 1);
+    assert.equal(auto.totalSpend, 250);
   });
 
   it("needs a manager approval for discounts above the role limit and for price overrides", async () => {

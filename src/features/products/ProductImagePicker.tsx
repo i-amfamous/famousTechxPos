@@ -5,7 +5,7 @@ import { cn } from "@/lib/format";
 
 /**
  * Reads a file (or a camera capture), resizes it in the browser and returns a compact JPEG data URL.
- * Keeping it as a data URL means product photos survive deploys — no ephemeral upload folder on Render.
+ * Keeping it as a data URL means product photos survive deploys - no ephemeral upload folder on Render.
  */
 export async function prepareImage(file: File): Promise<string> {
   const source = await new Promise<string>((resolve, reject) => {

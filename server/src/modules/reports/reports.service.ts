@@ -1,5 +1,5 @@
 /**
- * Dashboard & reports — every figure is derived from recorded data.
+ * Dashboard & reports - every figure is derived from recorded data.
  * Revenue = sale totals − tax (when prices include tax) − refunds. Voided sales are excluded.
  * Expenses are reported separately and never subtracted from sales.
  */

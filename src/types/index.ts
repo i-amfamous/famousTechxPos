@@ -122,6 +122,11 @@ export interface PaymentLine {
   method: PaymentMethod;
   amount: number;
   reference?: string;
+  /** Mobile money: customer number and the network detected from it. */
+  phone?: string;
+  network?: string;
+  /** Provider status, e.g. `pending` while a request-to-pay awaits approval. */
+  status?: string;
 }
 
 export type SaleStatus = "completed" | "refunded" | "partially_refunded" | "voided";
@@ -162,6 +167,8 @@ export interface SaleReceipt {
   taxTotal: number;
   total: number;
   payments: PaymentLine[];
+  /** Messages from the MoMo provider about requests sent when the sale was completed. */
+  paymentNotices?: string[];
   change?: number;
 }
 

@@ -32,7 +32,7 @@ export async function revokeUserSessions(db: Db, userId: string, exceptSessionId
   await db.run("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL AND id <> ?", [nowSql(), userId, exceptSessionId ?? ""]);
 }
 
-/** Ends sessions for one membership only — a person can belong to several businesses. */
+/** Ends sessions for one membership only - a person can belong to several businesses. */
 export async function revokeMemberSessions(db: Db, userId: string, orgId: string) {
   await db.run("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND organization_id = ? AND revoked_at IS NULL", [nowSql(), userId, orgId]);
 }

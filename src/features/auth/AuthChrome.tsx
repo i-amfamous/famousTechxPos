@@ -26,7 +26,7 @@ export function AuthBrandHeader({ compact }: { compact?: boolean }) {
       <Logo className={cn("shrink-0 ring-2 ring-white/30", compact ? "size-10 text-sm" : "size-12 text-base")} />
       <div>
         <p className={cn("font-black tracking-[0.16em]", compact ? "text-sm" : "text-base")}>FAMOUS TECHX</p>
-        <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.24em] text-brand-200">Point of sale, made simple</p>
+        <p className="mt-0.5 text-xs text-brand-100">Point of sale, made simple</p>
       </div>
     </div>
   );

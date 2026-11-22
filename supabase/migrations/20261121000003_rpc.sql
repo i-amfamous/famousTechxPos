@@ -214,7 +214,7 @@ language sql stable security definer set search_path = public as $$
   select * from pos_terminals where token_hash = sha256_hex(p_token) and status = 'active'
 $$;
 
--- Public (anon) — what a locked till shows: its identity and who can unlock it.
+-- Public (anon) - what a locked till shows: its identity and who can unlock it.
 create function terminal_roster(p_token text) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare v_t pos_terminals%rowtype; v_s jsonb;
@@ -337,7 +337,7 @@ begin
   insert into approvals (organization_id, terminal_id, action, amount, detail, requested_by, approved_by)
   values (p_org, p_terminal, p_action, p_amount, p_detail, v_me, v_ap.id) returning id into v_id;
   perform audit(p_org, v_ap.id, 'approval', 'Approved ' || replace(p_action, '_', ' '),
-                coalesce(p_detail, '') || ' — requested by ' || (select full_name from business_members where id = v_me),
+                coalesce(p_detail, '') || ' - requested by ' || (select full_name from business_members where id = v_me),
                 p_amount, null, p_terminal, 'approval', v_id);
   return v_id;
 end $$;
@@ -646,7 +646,7 @@ begin
     insert into sale_items (organization_id, sale_id, product_id, variant_id, name_snapshot, sku_snapshot, quantity, unit_price,
                             cost_snapshot, discount, tax, line_total)
     values (v_org, v_sale, (l->'p'->>'id')::uuid, nullif(l->'v'->>'id', '')::uuid,
-            (l->'p'->>'name') || coalesce(' — ' || (l->'v'->>'label'), ''), coalesce(l->'v'->>'sku', l->'p'->>'sku'),
+            (l->'p'->>'name') || coalesce(' - ' || (l->'v'->>'label'), ''), coalesce(l->'v'->>'sku', l->'p'->>'sku'),
             (l->>'qty')::numeric, (l->>'price')::numeric, (l->'p'->>'cost_price')::numeric,
             (l->>'disc')::numeric + (l->>'alloc')::numeric, (l->>'tax')::numeric, (l->>'line_total')::numeric);
   end loop;
@@ -1065,7 +1065,7 @@ begin
   update terminal_sessions set ended_at = now(), end_reason = 'forced' where member_id = p_member and ended_at is null;
   perform audit(v_org, v_me, 'employee',
                 case p_status when 'active' then 'Reactivated employee' when 'suspended' then 'Suspended employee' else 'Deactivated employee' end,
-                v_m.full_name || coalesce(' — ' || p_reason, ''), null, null, null, 'member', p_member);
+                v_m.full_name || coalesce(' - ' || p_reason, ''), null, null, null, 'member', p_member);
 end $$;
 
 create function force_sign_out(p_member uuid) returns void

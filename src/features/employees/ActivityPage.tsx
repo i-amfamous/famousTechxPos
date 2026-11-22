@@ -40,7 +40,7 @@ export function ActivityPage() {
     <>
       <PageHeader
         title="Activity log"
-        description="Every sign-in, sale, refund, approval, stock change and permission change — who did it, where and when."
+        description="Every sign-in, sale, refund, approval, stock change and permission change - who did it, where and when."
         actions={<>
           <Button variant="secondary" icon={<LuDownload className="size-4" />} onClick={() => downloadCsv(report())}>Export CSV</Button>
           <Button variant="secondary" icon={<LuFileText className="size-4" />} onClick={() => exportPrintable(report())}>PDF</Button>

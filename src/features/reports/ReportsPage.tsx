@@ -114,9 +114,9 @@ export function ReportsPage() {
                       { key: "r", header: "Revenue", align: "right", cell: (e) => formatMoney(e.revenue) },
                       { key: "a", header: "Avg sale", align: "right", hideBelow: "md", cell: (e) => formatMoney(e.avgSale) },
                       { key: "d", header: "Discounts", align: "right", hideBelow: "md", cell: (e) => formatMoney(e.discounts) },
-                      { key: "f", header: "Refunds", align: "right", hideBelow: "lg", cell: (e) => (e.refunds ? formatMoney(e.refunds) : "—") },
-                      { key: "ap", header: "Approvals", align: "right", hideBelow: "lg", cell: (e) => e.approvalsGiven || "—" },
-                      { key: "v", header: "Cash variance", align: "right", cell: (e) => (e.cashVariance ? <span className={e.cashVariance < 0 ? "text-rose-600" : "text-emerald-700"}>{e.cashVariance > 0 ? "+" : "−"}{formatMoney(Math.abs(e.cashVariance))}</span> : "—") },
+                      { key: "f", header: "Refunds", align: "right", hideBelow: "lg", cell: (e) => (e.refunds ? formatMoney(e.refunds) : "-") },
+                      { key: "ap", header: "Approvals", align: "right", hideBelow: "lg", cell: (e) => e.approvalsGiven || "-" },
+                      { key: "v", header: "Cash variance", align: "right", cell: (e) => (e.cashVariance ? <span className={e.cashVariance < 0 ? "text-rose-600" : "text-emerald-700"}>{e.cashVariance > 0 ? "+" : "−"}{formatMoney(Math.abs(e.cashVariance))}</span> : "-") },
                     ]}
                   />
                 ) : <EmptyState title="No activity in this period" />}
@@ -124,7 +124,7 @@ export function ReportsPage() {
             </>
           ) : sel === "pnl" ? (
             <Card>
-              <CardHeader title="Profit & loss" description="Revenue excludes tax collected. Expenses are shown separately — not subtracted from sales." />
+              <CardHeader title="Profit & loss" description="Revenue excludes tax collected. Expenses are shown separately - not subtracted from sales." />
               <dl className="max-w-lg space-y-2 text-sm">
                 {([["Gross sales", pnl.data.grossSales], ["Discounts", -pnl.data.discounts], ["Refunds", -pnl.data.refunds], ["Tax collected", -pnl.data.taxCollected], ["Net revenue", pnl.data.netRevenue, true],
                   ["Cost of goods sold", -pnl.data.cogs], ["Gross profit", pnl.data.grossProfit, true], ["Operating expenses", -pnl.data.operatingExpenses],
@@ -156,7 +156,7 @@ export function ReportsPage() {
             <Card><CardHeader title="Expenses by category" description={`${expenses.length} recorded · ${formatMoney(expenses.reduce((s, e) => s + e.amount, 0))}`} />{expByCat.length ? <ShareBars data={expByCat.map(([label, value]) => ({ label, value }))} /> : <EmptyState title="No expenses in this period" />}</Card>
           ) : sel === "purchases" ? (
             <Card padded={false}>{pos.length ? <DataTable rows={pos} rowKey={(p) => p.id} columns={[
-              { key: "n", header: "PO", cell: (p) => p.number }, { key: "s", header: "Supplier", cell: (p) => suppliers.find((x) => x.id === p.supplierId)?.name ?? "—" },
+              { key: "n", header: "PO", cell: (p) => p.number }, { key: "s", header: "Supplier", cell: (p) => suppliers.find((x) => x.id === p.supplierId)?.name ?? "-" },
               { key: "st", header: "Status", cell: (p) => p.status.replace("_", " ") }, { key: "t", header: "Total", align: "right", cell: (p) => formatMoney(p.lines.reduce((a, l) => a + l.quantity * l.unitCost, 0)) },
             ]} /> : <EmptyState title="No purchase orders in this period" />}</Card>
           ) : sel === "refunds" ? (

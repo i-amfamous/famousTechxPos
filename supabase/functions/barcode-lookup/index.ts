@@ -1,4 +1,4 @@
-// GET ?code=8806095300011 — looks a barcode up online to pre-fill the "Add product" form.
+// GET ?code=8806095300011 - looks a barcode up online to pre-fill the "Add product" form.
 // Order: cache → UPCitemdb (electronics & general goods) → Open Food Facts (groceries).
 // Set UPCITEMDB_KEY for the paid UPCitemdb plan; without it the free trial endpoint is used (≈100 lookups/day).
 import { admin, asCaller, cors, fail, json } from "../_shared/util.ts";

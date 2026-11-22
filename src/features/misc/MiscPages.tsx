@@ -59,7 +59,7 @@ export function ProfilePage() {
   );
 }
 
-/** System-administrator area (SRS §4.17) — separate from business workspaces. */
+/** System-administrator area (SRS §4.17) - separate from business workspaces. */
 export function PlatformAdminPage() {
   const rows = [
     { id: "b1", name: "Famous TechX", plan: "Business", status: "active", users: 8, since: "2023-02-01" },

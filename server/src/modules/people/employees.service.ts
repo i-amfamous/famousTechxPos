@@ -129,9 +129,18 @@ export async function createEmployee(db: Db, actor: Actor, i: NewEmployee) {
     const ok = await sendBrandedMail(email, `You've been added to ${result.businessName} on Famous TechX POS`, {
       businessName: result.businessName,
       greeting: `Hi ${fullName},`,
-      title: `Welcome to ${result.businessName}`,
-      paragraphs: [`${actor.member.full_name} added you to the team at ${result.businessName}. Set your password to get started with Famous TechX POS.`],
+      title: `Welcome to the team at ${result.businessName}`,
+      paragraphs: [
+        `${actor.member.full_name} has added you to the team at ${result.businessName} on Famous TechX POS. We're glad to have you on board!`,
+        "Your account is all set up on our side. Just create your own password and you'll be ready for your first sale.",
+      ],
+      steps: [
+        "Tap the button below to accept your invitation.",
+        "Choose a strong password (at least 8 characters, with upper and lower case letters and a number).",
+        "Sign in, then set your 4-digit POS PIN the first time you use a till.",
+      ],
       action: { label: "Set my password", url: inviteLink, note: "This link is valid for 7 days and can only be used once." },
+      footnote: "If you weren't expecting this invitation, you can safely ignore this email - your account won't be activated until you accept.",
     });
     if (ok) emailed = email;
   }

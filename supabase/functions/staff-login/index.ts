@@ -1,4 +1,4 @@
-// POST { phone, password } — back-office sign-in for staff who have no email address.
+// POST { phone, password } - back-office sign-in for staff who have no email address.
 // Looks up the employee's login identity by phone server-side (never exposed to the browser).
 import { admin, anon, cors, fail, json } from "../_shared/util.ts";
 

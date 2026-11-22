@@ -205,10 +205,10 @@ function TerminalsTab() {
         <div className="flex items-center justify-between px-5 py-4"><h3 className="font-semibold">Registered tills</h3><Button icon={<LuPlus className="size-4" />} onClick={() => { setReg(true); setDone(null); setName(`Till ${terminals.filter((t) => t.status === "active").length + 1}`); setBranchId(branch.id); }}>Register this device</Button></div>
         <DataTable rows={terminals} rowKey={(t) => t.id} columns={[
           { key: "n", header: "Till", cell: (t) => <div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-ink-100 text-ink-500"><LuMonitorSmartphone className="size-4" /></span><span className="font-medium text-ink-900">{t.name}{terminal?.id === t.id && <Badge tone="brand" className="ml-2">This device</Badge>}</span></div> },
-          { key: "b", header: "Branch", cell: (t) => branches.find((b) => b.id === t.branchId)?.name ?? "—" },
+          { key: "b", header: "Branch", cell: (t) => branches.find((b) => b.id === t.branchId)?.name ?? "-" },
           { key: "s", header: "Status", cell: (t) => (t.status === "active" ? <Badge tone="success" dot>Active</Badge> : <Badge>Revoked</Badge>) },
           { key: "l", header: "Last seen", hideBelow: "md", cell: (t) => timeAgo(t.lastSeenAt) },
-          { key: "r", header: "Registered by", hideBelow: "lg", cell: (t) => employees.find((e) => e.id === t.registeredBy)?.fullName ?? "—" },
+          { key: "r", header: "Registered by", hideBelow: "lg", cell: (t) => employees.find((e) => e.id === t.registeredBy)?.fullName ?? "-" },
           { key: "m", header: "", align: "right", cell: (t) => t.status === "active" && (
             <Menu trigger={(p) => <button {...p} aria-label="Till actions" className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100"><LuEllipsisVertical className="size-4" /></button>} items={[{ label: "Revoke", danger: true, onClick: () => setRevoke(t) }]} />
           ) },

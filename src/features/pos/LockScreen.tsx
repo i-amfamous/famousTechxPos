@@ -124,13 +124,13 @@ export function LockScreen() {
   const activeStep = mode === "create" || mode === "confirm" ? 2 : 1;
 
   return (
-    <AuthBackdrop>
+    <AuthBackdrop className="lock-scene">
       {/* Brand + terminal identity */}
       <div className="relative hidden w-[38%] shrink-0 flex-col justify-between border-r border-white/10 px-9 py-9 lg:flex xl:px-14 xl:py-12">
         <AuthBrandHeader />
 
         <div className="my-8">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-100 ring-1 ring-white/15">
+          <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs text-brand-100 ring-1 ring-white/15">
             <LuLock className="size-3.5" /> Till locked
           </span>
           <p className="num mt-6 text-6xl font-semibold tracking-[-0.06em] xl:text-7xl">{formatTime(now.toISOString())}</p>
@@ -142,22 +142,22 @@ export function LockScreen() {
             <div className="flex items-center gap-3 rounded-2xl bg-white/10 p-3.5 ring-1 ring-white/10 backdrop-blur-sm">
               <span className="flex size-10 items-center justify-center rounded-xl bg-white/15"><LuMonitorSmartphone className="size-5" /></span>
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-brand-200">This terminal</p>
+                <p className="text-xs text-brand-100">This terminal</p>
                 <p className="truncate font-semibold">{terminal?.name ?? "Checking device…"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-2xl bg-white/10 p-3.5 ring-1 ring-white/10 backdrop-blur-sm">
               <span className="flex size-10 items-center justify-center rounded-xl bg-white/15"><LuUsers className="size-5" /></span>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-brand-200">Your branch</p>
-                <p className="font-semibold">{branch.name === "—" ? "Loading…" : branch.name}</p>
+                <p className="text-xs text-brand-100">Your branch</p>
+                <p className="font-semibold">{branch.name === "-" ? "Loading…" : branch.name}</p>
               </div>
             </div>
             {heldCount > 0 && (
               <div className="flex items-center gap-3 rounded-2xl bg-amber-400/15 p-3.5 text-amber-50 ring-1 ring-amber-200/20">
                 <span className="flex size-10 items-center justify-center rounded-xl bg-white/15"><LuShoppingBag className="size-5" /></span>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-100/80">Waiting carts</p>
+                  <p className="text-xs text-amber-50">Waiting carts</p>
                   <p className="font-semibold">{heldCount} held cart{heldCount > 1 ? "s" : ""}</p>
                 </div>
               </div>
@@ -183,8 +183,7 @@ export function LockScreen() {
             <>
               <div className="mb-6">
                 <div className="mb-5 lg:hidden"><AuthBrandHeader compact /></div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-100">Point of sale</p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Who's selling?</h1>
+                <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Who's selling?</h1>
                 <p className="mt-2 max-w-lg text-sm text-brand-100">Tap your name and enter your 4-digit PIN. First time on a till? We'll help you set one up.</p>
               </div>
 
@@ -306,7 +305,7 @@ export function LockScreen() {
                   Too many attempts. Ask a manager to reset your PIN.
                 </div>
               ) : mode === "enter" ? (
-                <p className="mt-6 text-xs text-ink-400">Don't share your PIN — every sale is recorded against it.</p>
+                <p className="mt-6 text-xs text-ink-400">Don't share your PIN - every sale is recorded against it.</p>
               ) : null}
             </AuthCard>
           )}
@@ -324,7 +323,7 @@ export function LockScreen() {
 function NotATill() {
   const navigate = useNavigate();
   return (
-    <AuthBackdrop>
+    <AuthBackdrop className="lock-scene">
       <div className="flex flex-1 items-center justify-center p-5">
         <AuthCard className="max-w-lg text-center">
           <div className="hidden justify-center lg:flex"><AuthBrandHeader compact /></div>

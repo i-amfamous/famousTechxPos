@@ -21,7 +21,7 @@ export function exportCsv(r: ExportReport) {
   const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const meta = [
     [`# ${r.business?.name ?? "Famous TechX"}`],
-    [`# ${r.title}${r.subtitle ? ` — ${r.subtitle}` : ""}`],
+    [`# ${r.title}${r.subtitle ? ` - ${r.subtitle}` : ""}`],
     [`# Generated ${stamp()}`],
     [],
     r.columns.map((c) => c.header),
@@ -46,7 +46,7 @@ export function exportPrintable(r: ExportReport) {
     ? `<div class="summary">${r.summary.map((s) => `<div><span>${esc(s.label)}</span><strong>${esc(s.value)}</strong></div>`).join("")}</div>`
     : "";
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(r.title)} — ${esc(b?.name ?? "Famous TechX")}</title>
+<title>${esc(r.title)} - ${esc(b?.name ?? "Famous TechX")}</title>
 <style>
   @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }

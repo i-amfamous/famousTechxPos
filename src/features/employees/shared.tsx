@@ -55,7 +55,7 @@ export async function resendInvite(memberId: string, email: string | undefined, 
     const r = await actions.employeeAdmin("resend_invite", memberId);
     if (r.inviteLink) {
       await navigator.clipboard?.writeText(r.inviteLink).catch(() => null);
-      toast({ tone: "info", title: "Invite link copied", body: "Email isn't set up on the server — paste the link to the employee yourself." });
+      toast({ tone: "info", title: "Invite link copied", body: "Email isn't set up on the server - paste the link to the employee yourself." });
     } else toast({ tone: "success", title: "Invite resent", body: email });
   } catch (er) {
     toast({ tone: "error", title: (er as Error).message });

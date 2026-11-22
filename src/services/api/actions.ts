@@ -18,7 +18,10 @@ const startSession = ({ token }: SessionGrant) => {
 };
 
 export interface CheckoutInput {
-  terminalId: string; lines: CartLine[]; payments: PaymentLine[]; customerId?: string; cartDiscount: number;
+  terminalId: string; lines: CartLine[]; payments: PaymentLine[]; customerId?: string;
+  /** Customer details captured at the till; the server saves them even without an attached customer. */
+  customer?: { name?: string; phone?: string; email?: string };
+  cartDiscount: number;
   discountReason?: string; discountApprovalId?: string | null; priceApprovalId?: string | null; idempotencyKey: string;
 }
 
@@ -169,12 +172,13 @@ export const actions = {
   async checkout(i: CheckoutInput): Promise<SaleReceipt> {
     if (DEMO) return demoReceipt(i);
     const receipt = await http.post<SaleReceipt>("/checkout", {
-      terminalId: i.terminalId, customerId: i.customerId ?? null, idempotencyKey: i.idempotencyKey,
+      terminalId: i.terminalId, customerId: i.customerId ?? null, customer: i.customer ?? null, idempotencyKey: i.idempotencyKey,
       cartDiscount: i.cartDiscount, discountReason: i.discountReason ?? null,
       discountApprovalId: i.discountApprovalId ?? null, priceApprovalId: i.priceApprovalId ?? null,
       // The price is only sent when the cashier changed it, so the server always prices from the catalogue otherwise.
       lines: i.lines.map((l) => ({ productId: l.productId, variantId: l.variantId ?? null, quantity: l.quantity, discount: l.discount, ...(l.priceOverride ? { unitPrice: l.unitPrice } : {}) })),
-      payments: i.payments.map((p) => ({ method: p.method, amount: p.amount, reference: p.reference ?? null })),
+      // Phone and network power the network-specific MoMo request - don't drop them on the wire.
+      payments: i.payments.map((p) => ({ method: p.method, amount: p.amount, reference: p.reference ?? null, phone: p.phone ?? null, network: p.network ?? null })),
     });
     invalidate("sales", "products", "shifts", "dashboard", "customers", "activity", "movements", "notifications");
     return receipt;

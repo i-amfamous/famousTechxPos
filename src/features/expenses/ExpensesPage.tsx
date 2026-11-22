@@ -27,10 +27,10 @@ export function ExpensesPage() {
   const byCat = Object.entries(recorded.reduce<Record<string, number>>((a, e) => ({ ...a, [e.category]: (a[e.category] ?? 0) + e.amount }), {})).sort((a, b) => b[1] - a[1]);
   return (
     <>
-      <PageHeader title="Expenses" description="Money going out of the business. Shown in reports as operating expenses — not subtracted from sales." actions={<Button icon={<LuPlus className="size-4" />} onClick={() => setAdding(true)}>Record expense</Button>} />
+      <PageHeader title="Expenses" description="Money going out of the business. Shown in reports as operating expenses - not subtracted from sales." actions={<Button icon={<LuPlus className="size-4" />} onClick={() => setAdding(true)}>Record expense</Button>} />
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <StatCard label={month ? "Selected month" : "All time"} value={formatMoney(total)} icon={<LuWallet className="size-4" />} />
-        <StatCard label="Largest category" value={byCat[0]?.[0] ?? "—"} hint={byCat[0] ? formatMoney(byCat[0][1]) : undefined} />
+        <StatCard label="Largest category" value={byCat[0]?.[0] ?? "-"} hint={byCat[0] ? formatMoney(byCat[0][1]) : undefined} />
         <StatCard label="Voided" value={rows.filter((e) => e.status === "voided").length} hint="kept for audit" />
       </div>
       <Card padded={false}>

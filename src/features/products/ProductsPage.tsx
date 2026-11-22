@@ -70,7 +70,7 @@ export function ProductsPage() {
     if (hit) { setEdit(hit); return `Opened ${hit.name}`; }
     setScanned(code);
     setEdit("new");
-    return "New product — details being looked up";
+    return "New product - details being looked up";
   }, !edit);
 
   const report = (): ExportReport => ({
@@ -79,12 +79,12 @@ export function ProductsPage() {
     subtitle: `${rows.length} products${cat ? ` · ${categories.find((c) => c.id === cat)?.name ?? ""}` : ""}`,
     business,
     columns: [
-      { key: "name", header: "Product" }, { key: "sku", header: "SKU" }, { key: "barcode", header: "Barcode" },
-      { key: "category", header: "Category" }, { key: "cost", header: "Cost", align: "right" },
+      { key: "name", header: "Product" }, { key: "description", header: "Description" }, { key: "sku", header: "SKU" }, { key: "barcode", header: "Barcode" },
+      { key: "category", header: "Category" }, { key: "unit", header: "Unit" }, { key: "cost", header: "Cost", align: "right" },
       { key: "price", header: "Price", align: "right" }, { key: "stock", header: "Stock", align: "right" },
       { key: "reorder", header: "Reorder", align: "right" }, { key: "status", header: "Status" },
     ],
-    rows: rows.map((p) => [p.name, p.sku, p.barcode ?? "", categories.find((c) => c.id === p.categoryId)?.name ?? "", p.costPrice, p.sellingPrice, p.stock, p.reorderLevel, p.status]),
+    rows: rows.map((p) => [p.name, p.description ?? "", p.sku, p.barcode ?? "", categories.find((c) => c.id === p.categoryId)?.name ?? "", p.unit, p.costPrice, p.sellingPrice, p.stock, p.reorderLevel, p.status]),
     summary: [
       { label: "Products", value: String(rows.length) },
       { label: "Stock value", value: formatMoney(rows.reduce((sum, p) => sum + Math.max(0, p.stock) * p.costPrice, 0)) },
@@ -94,11 +94,11 @@ export function ProductsPage() {
   const exportPdf = () => exportPrintable(report());
 
   const cols: Column<Product>[] = [
-    { key: "n", header: "Product", cell: (p) => <div className="flex items-center gap-3"><ProductThumb p={p} /><div><p className="font-medium text-ink-900">{p.name}</p><p className="text-xs text-ink-500">{p.sku}{p.barcode && ` · ${p.barcode}`}{p.variants && ` · ${p.variants.length} variants`}</p></div></div> },
-    { key: "c", header: "Category", hideBelow: "md", cell: (p) => categories.find((c) => c.id === p.categoryId)?.name ?? "—" },
+    { key: "n", header: "Product", cell: (p) => <div className="flex items-center gap-3"><ProductThumb p={p} /><div className="min-w-0"><p className="font-medium text-ink-900">{p.name}</p><p className="text-xs text-ink-500">{p.sku}{p.barcode && ` · ${p.barcode}`}{p.variants && ` · ${p.variants.length} variants`}</p>{p.description && <p className="mt-0.5 line-clamp-1 text-[11px] text-ink-400">{p.description}</p>}</div></div> },
+    { key: "c", header: "Category", hideBelow: "md", cell: (p) => categories.find((c) => c.id === p.categoryId)?.name ?? "-" },
     { key: "cost", header: "Cost", align: "right", hideBelow: "lg", cell: (p) => formatMoney(p.costPrice) },
     { key: "price", header: "Price", align: "right", cell: (p) => <span className="font-medium text-ink-900">{formatMoney(p.sellingPrice)}</span> },
-    { key: "m", header: "Margin", align: "right", hideBelow: "lg", cell: (p) => (p.sellingPrice ? `${Math.round(((p.sellingPrice - p.costPrice) / p.sellingPrice) * 100)}%` : "—") },
+    { key: "m", header: "Margin", align: "right", hideBelow: "lg", cell: (p) => (p.sellingPrice ? `${Math.round(((p.sellingPrice - p.costPrice) / p.sellingPrice) * 100)}%` : "-") },
     { key: "s", header: "Stock", align: "right", cell: (p) => <StockBadge p={p} /> },
   ];
 
@@ -241,7 +241,7 @@ export function ProductDrawer({ product, initialBarcode, onClose, onOpenExisting
       onClose={onClose}
       width="lg"
       title={p ? "Edit product" : "Add product"}
-      description={p ? p.sku : "Scan the barcode with any scanner, camera or your phone — we'll fill in what we can."}
+      description={p ? p.sku : "Scan the barcode with any scanner, camera or your phone - we'll fill in what we can."}
       footer={readOnly ? <Button variant="secondary" onClick={onClose}>Close</Button> : <>
         {p && <Button variant="ghost" className="mr-auto" icon={p.status === "active" ? <LuArchive className="size-4" /> : <LuArchiveRestore className="size-4" />} onClick={toggleArchive}>{p.status === "active" ? "Archive" : "Restore"}</Button>}
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
@@ -291,7 +291,7 @@ export function ProductDrawer({ product, initialBarcode, onClose, onOpenExisting
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <CategoryPicker value={f.categoryId} onChange={(v) => set("categoryId", v)} />
-            <Select label="Unit" value={f.unit} onChange={(e) => set("unit", e.target.value)}><option value="pc">Piece</option><option value="job">Service / job (no stock)</option><option value="box">Box</option><option value="kg">Kilogram</option></Select>
+            <Select label="Unit" value={f.unit} onChange={(e) => set("unit", e.target.value)}><option value="pc">Piece</option><option value="box">Box</option><option value="kg">Kilogram</option><option value="L">Litre (L)</option><option value="ml">Millilitre (ml)</option><option value="job">Service / job (no stock)</option></Select>
             <Input label="SKU" required value={f.sku} onChange={(e) => set("sku", e.target.value)} error={errors.sku} hint={!f.sku && f.name ? <button type="button" className="text-brand-700 hover:underline" onClick={() => set("sku", skuFrom(f.name))}>Generate from name</button> : "Must be unique"} />
             <Input label="Barcode" value={f.barcode} onChange={(e) => set("barcode", e.target.value)} onBlur={() => !p && f.barcode.length >= 8 && lookup?.code !== f.barcode && runLookup(f.barcode)} error={errors.barcode} hint="Scan or type" data-scan="native"
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (!p && f.barcode.length >= 6) void runLookup(f.barcode); } }} />

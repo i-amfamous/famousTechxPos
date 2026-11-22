@@ -1,7 +1,7 @@
 /**
  * One place for every scan source. Whatever screen is on top registers a handler
  * with `useScan(handler)`; scans from any source go to it:
- *   1. USB / Bluetooth barcode scanners (they type like a keyboard + Enter) — always on
+ *   1. USB / Bluetooth barcode scanners (they type like a keyboard + Enter) - always on
  *   2. This device's camera (CameraScanModal)
  *   3. A phone paired over Wi-Fi / internet (QR code → /scan/:session on the phone)
  */
@@ -118,7 +118,7 @@ export function ScannerProvider({ children }: { children: ReactNode }) {
         setPairingOpen(false);
         if (!greeted.current) {
           greeted.current = true;
-          toast({ tone: "success", title: "Phone scanner connected", body: "Scan with your phone — items appear here." });
+          toast({ tone: "success", title: "Phone scanner connected", body: "Scan with your phone - items appear here." });
         }
       } else if (m.type === "peer") {
         // The relay tells us when the phone joins/leaves, even before it sends a scan.

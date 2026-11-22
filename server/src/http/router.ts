@@ -3,9 +3,9 @@
  * test-suite both run them through `dispatch`, so tests exercise exactly the production request path.
  *
  * Access levels:
- *   public  — no sign-in (sign-in itself, the till roster which uses its own device token)
- *   session — any signed-in user, even before they belong to a business
- *   member  — an active employee of a business; fine-grained permissions are checked in services
+ *   public  - no sign-in (sign-in itself, the till roster which uses its own device token)
+ *   session - any signed-in user, even before they belong to a business
+ *   member  - an active employee of a business; fine-grained permissions are checked in services
  */
 import { assertSessionDevice, loadActor, readSession, type SessionInfo } from "../auth/sessions.js";
 import type { Actor } from "../auth/access.js";
@@ -76,7 +76,7 @@ export function createRouter(routes: Route[]): Router {
 const WINDOW_MS = 60_000;
 const hits = new Map<string, { count: number; resetAt: number }>();
 
-/** Fixed one-minute window per client and route — enough to slow down password and PIN guessing. */
+/** Fixed one-minute window per client and route - enough to slow down password and PIN guessing. */
 function rateLimit(key: string, max: number) {
   const now = Date.now();
   const entry = hits.get(key);

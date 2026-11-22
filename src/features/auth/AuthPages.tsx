@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useSession } from "@/app/session";
-import { LuArrowLeft, LuArrowRight, LuCheck, LuCircleAlert, LuEye, LuEyeOff, LuMail, LuMonitorSmartphone, LuShieldCheck } from "react-icons/lu";
+import { LuArrowLeft, LuArrowRight, LuCheck, LuCircleAlert, LuEye, LuEyeOff, LuKeyRound, LuLockKeyhole, LuMail, LuMonitorSmartphone, LuShieldCheck } from "react-icons/lu";
 import { actions } from "@/services/api";
 import { Button, Callout, Card, Checkbox, Input, Select } from "@/components/ui";
 import { cn } from "@/lib/format";
@@ -17,7 +17,7 @@ function AuthShell({ children, wide, card = true }: { children: ReactNode; wide?
           <h2 className="mt-6 text-4xl font-semibold leading-[1.12] tracking-tight xl:text-5xl">
             Sell faster.<br />Know every cedi.<br /><span className="text-brand-200">Trust your team.</span>
           </h2>
-          <p className="mt-5 max-w-sm text-base leading-relaxed text-brand-100">Sales, stock, staff and shifts for every branch — in one place.</p>
+          <p className="mt-5 max-w-sm text-base leading-relaxed text-brand-100">Sales, stock, staff and shifts for every branch - in one place.</p>
           <div className="mt-8 flex items-center gap-3 rounded-2xl bg-white/10 p-3.5 ring-1 ring-white/10 backdrop-blur-sm">
             <span className="flex size-10 items-center justify-center rounded-xl bg-white/15"><LuShieldCheck className="size-5" /></span>
             <p className="text-xs leading-relaxed text-brand-100"><span className="font-semibold text-white">Built for busy counters.</span><br />Fast checkout, clear shift handovers and a full audit trail.</p>
@@ -77,10 +77,11 @@ export function LoginPage() {
   };
   return (
     <AuthShell>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-600">Back office</p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink-900">Welcome back</h1>
-      <p className="mt-1.5 text-sm text-ink-500">Sign in to manage sales, stock, staff and shifts.</p>
-      <form className="mt-7 space-y-4" onSubmit={submit}>
+      <div className="text-center">
+        <h1 className="text-3xl font-semibold tracking-tight text-ink-900">Welcome back</h1>
+        <p className="mt-1.5 text-sm text-ink-500">Sign in to manage sales, stock, staff and shifts.</p>
+      </div>
+      <form className="mx-auto mt-7 w-full max-w-sm space-y-4 text-left" onSubmit={submit}>
         {error && <Callout tone="danger" icon={<LuCircleAlert className="size-4" />}>{error}</Callout>}
         <Input label="Email or phone" hint="Staff without email use their phone number" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" autoFocus />
         <PasswordInput label="Password" value={password} onChange={setPassword} autoComplete="current-password" />
@@ -90,7 +91,7 @@ export function LoginPage() {
         </div>
         <Button type="submit" size="lg" block loading={busy} iconRight={!busy ? <LuArrowRight className="size-4" /> : undefined}>Sign in</Button>
       </form>
-      <div className="mt-7 flex gap-3 rounded-2xl bg-gradient-to-br from-brand-50 to-violet-50 p-4 ring-1 ring-brand-100">
+      <div className="mx-auto mt-7 flex max-w-sm gap-3 rounded-2xl bg-gradient-to-br from-brand-50 to-violet-50 p-4 text-left ring-1 ring-brand-100">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white text-brand-700 shadow-sm"><LuMonitorSmartphone className="size-4" /></span>
         <div className="text-sm">
           <p className="font-semibold text-ink-800">Working on a till?</p>
@@ -98,7 +99,7 @@ export function LoginPage() {
           <Link to="/pos/lock" className="mt-1.5 inline-flex items-center gap-1 font-semibold text-brand-700 hover:underline">Go to POS lock screen <LuArrowRight className="size-3.5" /></Link>
         </div>
       </div>
-      <p className="mt-6 text-center text-sm text-ink-500">New business? <Link to="/onboarding" className="font-medium text-brand-700 hover:underline">Set up Famous TechX</Link></p>
+      <p className="mx-auto mt-6 max-w-sm text-center text-sm text-ink-500">New business? <Link to="/onboarding" className="font-medium text-brand-700 hover:underline">Set up Famous TechX</Link></p>
     </AuthShell>
   );
 }
@@ -110,7 +111,7 @@ export function ForgotPasswordPage() {
   const [busy, setBusy] = useState(false);
   return (
     <AuthShell>
-      <Link to="/login" className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-900"><LuArrowLeft className="size-4" /> Back to sign in</Link>
+      <Link to="/login" className="mx-auto mb-6 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-900"><LuArrowLeft className="size-4" /> Back to sign in</Link>
       {sent ? (
         <div className="auth-panel-in py-2 text-center">
           <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
@@ -124,16 +125,21 @@ export function ForgotPasswordPage() {
           <Link to="/login" className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline">Back to sign in <LuArrowRight className="size-3.5" /></Link>
         </div>
       ) : (
-        <>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-600">Account recovery</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink-900">Reset your password</h1>
-          <p className="mt-1.5 text-sm text-ink-500">We'll send a secure link to your email.</p>
-          <form className="mt-7 space-y-4" onSubmit={async (e) => { e.preventDefault(); setBusy(true); try { await actions.requestPasswordReset(email); setSent(true); } catch { setSent(true); } finally { setBusy(false); } }}>
-            <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+        <div className="text-center">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 text-white shadow-lg shadow-brand-500/25 ring-1 ring-white/40">
+            <LuKeyRound className="size-6" />
+          </div>
+          <h1 className="mt-5 text-3xl font-semibold tracking-tight text-ink-900">Forgot your password?</h1>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-500">No problem. Enter the email you use for Famous TechX POS and we'll send you a secure link to choose a new one.</p>
+          <form className="mx-auto mt-7 w-full max-w-sm space-y-4 text-left" onSubmit={async (e) => { e.preventDefault(); setBusy(true); try { await actions.requestPasswordReset(email); setSent(true); } catch { setSent(true); } finally { setBusy(false); } }}>
+            <Input label="Email address" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@yourbusiness.com" required autoFocus />
             <Button type="submit" size="lg" block loading={busy} iconRight={!busy ? <LuArrowRight className="size-4" /> : undefined}>Send reset link</Button>
           </form>
-          <p className="mt-5 text-center text-xs text-ink-400">The link arrives from Famous TechX POS and expires in 1 hour.</p>
-        </>
+          <div className="mx-auto mt-6 flex max-w-sm items-start gap-2.5 rounded-2xl bg-ink-50/80 p-3.5 text-left ring-1 ring-ink-100">
+            <LuShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+            <p className="text-xs leading-relaxed text-ink-600">The email comes from <span className="font-semibold text-ink-800">Famous TechX POS</span> and the link expires in 1 hour. If you don't see it, check your spam folder.</p>
+          </div>
+        </div>
       )}
     </AuthShell>
   );
@@ -155,43 +161,76 @@ export function AcceptInvitePage() {
     { ok: /[A-Z]/.test(pw) && /[a-z]/.test(pw), label: "Upper and lower case letters" },
     { ok: /\d/.test(pw), label: "At least one number" },
   ];
-  const strong = checks.every((c) => c.ok);
+  const score = checks.filter((c) => c.ok).length;
+  const strong = score === checks.length;
+  const heading = mustChangePassword || isReset ? "Choose a new password" : `Welcome${user.displayName ? `, ${user.displayName}` : ""}`;
+  const intro = mustChangePassword
+    ? "You signed in with a temporary password. Create your own to keep your account secure and carry on."
+    : isReset
+      ? "Pick a fresh password for your Famous TechX POS account. Your sales and settings are all safe."
+      : `Create your password to finish setting up your account${business ? ` at ${business.name}` : ""}. It only takes a moment.`;
+
   if (!demo && !ready) return <AuthLoader label="Checking your invitation…" note="Famous TechX POS" />;
   // Without a link token the page is only for someone signed in with a temporary password.
   if (!demo && ready && !signedIn && !linkToken)
     return (
       <AuthShell>
-        <h1 className="text-2xl font-semibold text-ink-900">This link has expired</h1>
-        <p className="mt-2 text-sm text-ink-600">Invite and reset links work once and expire. Ask your manager to resend the invite, or request a new reset link.</p>
-        <div className="mt-6 flex gap-2"><Button variant="secondary" onClick={() => navigate("/forgot-password")}>Reset password</Button><Button onClick={() => navigate("/login")}>Sign in</Button></div>
+        <div className="text-center">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 ring-1 ring-amber-200"><LuCircleAlert className="size-6" /></div>
+          <h1 className="mt-5 text-2xl font-semibold tracking-tight text-ink-900">This link has expired</h1>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-600">Invite and reset links work once and expire for your security. Ask your manager to resend the invitation, or request a fresh reset link.</p>
+          <div className="mt-6 flex justify-center gap-2"><Button variant="secondary" onClick={() => navigate("/forgot-password")}>Reset password</Button><Button onClick={() => navigate("/login")}>Sign in</Button></div>
+        </div>
       </AuthShell>
     );
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!strong) { setError("Please meet all three password requirements below."); return; }
+    if (pw !== pw2) { setError("The two passwords don't match. Please try again."); return; }
+    setBusy(true);
+    try { await actions.setPassword(pw, linkToken); await refresh(); navigate("/dashboard", { replace: true }); }
+    catch (er) { setError((er as Error).message); }
+    finally { setBusy(false); }
+  };
+
   return (
     <AuthShell>
-      <h1 className="text-2xl font-semibold text-ink-900">{mustChangePassword || isReset ? "Choose a new password" : `Welcome${user.displayName ? `, ${user.displayName}` : ""}`}</h1>
-      <p className="mt-1 text-sm text-ink-500">
-        {mustChangePassword ? "You signed in with a temporary password. Set your own to continue."
-          : isReset ? "Pick a password you haven't used here before."
-          : `Create your password to finish setting up your account${business ? ` at ${business.name}` : ""}.`}
-      </p>
-      <form className="mt-8 space-y-4" onSubmit={async (e) => {
-        e.preventDefault(); setBusy(true); setError(null);
-        try { await actions.setPassword(pw, linkToken); await refresh(); navigate("/dashboard", { replace: true }); }
-        catch (er) { setError((er as Error).message); }
-        finally { setBusy(false); }
-      }}>
-        {error && <Callout tone="danger">{error}</Callout>}
+      <div className="text-center">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 text-white shadow-lg shadow-brand-500/25 ring-1 ring-white/40">
+          <LuLockKeyhole className="size-6" />
+        </div>
+        <h1 className="mt-5 text-3xl font-semibold tracking-tight text-ink-900">{heading}</h1>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-500">{intro}</p>
+      </div>
+
+      <div className="mx-auto mt-6 w-full max-w-sm rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-violet-50 p-4 text-left">
+        <p className="flex items-center gap-2 text-xs font-semibold text-brand-800"><LuShieldCheck className="size-4" /> Secure, one-time setup</p>
+        <p className="mt-1.5 text-xs leading-relaxed text-ink-600">This link came from Famous TechX POS and only you can use it. Your password is stored as a one-way hash, never in plain text.</p>
+      </div>
+
+      <form className="mx-auto mt-6 w-full max-w-sm space-y-4 text-left" onSubmit={submit}>
+        {error && <Callout tone="danger" icon={<LuCircleAlert className="size-4" />}>{error}</Callout>}
         {signedIn && <Input label="Account" value={authEmail ?? user.phone} disabled />}
-        <PasswordInput label="New password" value={pw} onChange={setPw} autoComplete="new-password" />
-        <ul className="space-y-1">
-          {checks.map((c) => (
-            <li key={c.label} className={cn("flex items-center gap-2 text-xs", c.ok ? "text-emerald-700" : "text-ink-500")}>
-              <LuCheck className={cn("size-3.5", !c.ok && "opacity-30")} /> {c.label}
-            </li>
-          ))}
-        </ul>
+        <div>
+          <PasswordInput label="New password" value={pw} onChange={setPw} autoComplete="new-password" hint="Use at least 8 characters" />
+          <div className="mt-2 flex gap-1.5" aria-hidden="true">
+            {[1, 2, 3].map((n) => <span key={n} className={cn("h-1.5 flex-1 rounded-full transition-colors", score >= n ? (strong ? "bg-emerald-500" : "bg-amber-400") : "bg-ink-200")} />)}
+          </div>
+          <ul className="mt-3 space-y-1.5 rounded-xl bg-ink-50/80 p-3 ring-1 ring-ink-100">
+            {checks.map((c) => (
+              <li key={c.label} className={cn("flex items-center gap-2 text-xs transition-colors", c.ok ? "font-medium text-emerald-700" : "text-ink-500")}>
+                <span className={cn("flex size-4 items-center justify-center rounded-full", c.ok ? "bg-emerald-600 text-white" : "bg-ink-200 text-ink-400")}>
+                  <LuCheck className="size-3" />
+                </span>
+                {c.label}
+              </li>
+            ))}
+          </ul>
+        </div>
         <PasswordInput label="Confirm password" value={pw2} onChange={setPw2} error={pw2 && pw2 !== pw ? "Passwords don't match" : undefined} autoComplete="new-password" />
-        <Button type="submit" size="lg" block loading={busy} disabled={!strong || pw !== pw2}>Save password & continue</Button>
+        <Button type="submit" size="lg" block loading={busy} iconRight={!busy ? <LuArrowRight className="size-4" /> : undefined}>Save password & continue</Button>
         <p className="text-center text-xs text-ink-500">You'll set your 4-digit POS PIN the first time you use a till.</p>
       </form>
     </AuthShell>

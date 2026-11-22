@@ -1,5 +1,5 @@
 /**
- * Runs the API on a throw-away in-memory database — no TiDB, no .env needed. Great for trying the app
+ * Runs the API on a throw-away in-memory database - no TiDB, no .env needed. Great for trying the app
  * or developing the website. Everything is lost when you stop it.
  *   npm run dev:memory      →  http://localhost:8080
  * Emails (invites, password resets) are printed here instead of being sent.

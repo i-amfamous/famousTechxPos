@@ -128,7 +128,7 @@ export function DashboardPage() {
                     columns={[
                       { key: "r", header: "Receipt", cell: (s) => <span className="font-medium text-ink-900">{s.receiptNumber}</span> },
                       { key: "t", header: "Time", cell: (s) => timeAgo(s.createdAt) },
-                      { key: "c", header: "Served by", hideBelow: "sm", cell: (s) => employees.find((e) => e.id === s.cashierId)?.fullName ?? "—" },
+                      { key: "c", header: "Served by", hideBelow: "sm", cell: (s) => employees.find((e) => e.id === s.cashierId)?.fullName ?? "-" },
                       { key: "s", header: "Status", cell: (s) => <SaleStatusBadge status={s.status} /> },
                       { key: "a", header: "Total", align: "right", cell: (s) => <span className="font-medium">{formatMoney(s.total)}</span> },
                     ]}

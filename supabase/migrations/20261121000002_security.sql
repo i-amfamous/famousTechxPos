@@ -184,7 +184,7 @@ create policy member_read on member_branch_access for select to authenticated
   using (exists (select 1 from business_members m where m.id = member_id and is_member(m.organization_id)));
 create policy member_read on member_permission_overrides for select to authenticated
   using (exists (select 1 from business_members m where m.id = member_id and is_member(m.organization_id)));
--- member_pins: intentionally no policies — never readable or writable by clients.
+-- member_pins: intentionally no policies - never readable or writable by clients.
 
 create policy member_read on pos_terminals for select to authenticated using (is_member(organization_id));
 create policy staff_read on terminal_sessions for select to authenticated

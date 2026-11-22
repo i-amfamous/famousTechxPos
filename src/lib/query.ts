@@ -20,7 +20,7 @@ interface Entry {
   rerun?: boolean;
   /** Identity generation this entry's current request belongs to. */
   epoch: number;
-  /** When the last successful request finished — used to revalidate stale screens on mount/focus. */
+  /** When the last successful request finished - used to revalidate stale screens on mount/focus. */
   fetchedAt: number;
   listeners: Set<() => void>;
   snapshot: { data: unknown; error: string | null; loading: boolean; loaded: boolean };

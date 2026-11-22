@@ -1,7 +1,7 @@
 /**
  * DESIGN-TIME SAMPLE DATA ONLY.
  * Used so every screen can be reviewed with realistic content. Do not ship to
- * production — replace via src/services/api.ts with real Supabase queries.
+ * production - replace via src/services/api.ts with real Supabase queries.
  */
 import type {
   ActivityEvent, AppNotification, Branch, CashMovement, Category, Customer, Employee, Expense,
@@ -110,7 +110,7 @@ export const products: Product[] = [
 export const customers: Customer[] = [
   { id: "cu1", name: "Esi Quaye", phone: "024 111 2233", email: "esi.q@gmail.com", address: "East Legon, Accra", totalSpend: 8240, visits: 7, lastVisit: ago(60 * 26) },
   { id: "cu2", name: "Daniel Ofori", phone: "020 333 4455", totalSpend: 1999, visits: 1, lastVisit: ago(60 * 3) },
-  { id: "cu3", name: "Mavis Adjei", phone: "054 777 8899", email: "mavis@adjeiventures.com", address: "Spintex Rd, Accra", notes: "Business buyer — prefers MoMo.", totalSpend: 23410, visits: 15, lastVisit: ago(60 * 24 * 4) },
+  { id: "cu3", name: "Mavis Adjei", phone: "054 777 8899", email: "mavis@adjeiventures.com", address: "Spintex Rd, Accra", notes: "Business buyer - prefers MoMo.", totalSpend: 23410, visits: 15, lastVisit: ago(60 * 24 * 4) },
   { id: "cu4", name: "Samuel Tetteh", phone: "026 999 0011", totalSpend: 450, visits: 2, lastVisit: ago(60 * 24 * 12) },
   { id: "cu5", name: "Gifty Amponsah", phone: "055 222 3344", totalSpend: 3120, visits: 4, lastVisit: ago(60 * 24 * 2) },
 ];
@@ -129,7 +129,7 @@ export const sales: Sale[] = [
 export const shifts: Shift[] = [
   { id: "sh1", employeeId: "e3", terminalId: "t1", branchId: "br1", status: "open", openedAt: ago(60 * 4), openingFloat: 300, expectedCash: 680, salesCount: 14, salesTotal: 6420, byMethod: { cash: 1380, momo: 4210, card: 830, bank: 0 } },
   { id: "sh2", employeeId: "e2", terminalId: "t2", branchId: "br1", status: "open", openedAt: ago(60 * 3), openingFloat: 200, expectedCash: 700, salesCount: 6, salesTotal: 2140, byMethod: { cash: 500, momo: 1640, card: 0, bank: 0 } },
-  { id: "sh3", employeeId: "e4", terminalId: "t2", branchId: "br1", status: "closed", openedAt: ago(60 * 9), closedAt: ago(60 * 4), openingFloat: 300, expectedCash: 1450, countedCash: 1430, salesCount: 22, salesTotal: 11980, byMethod: { cash: 1600, momo: 6106, card: 4000, bank: 2274 }, approvedBy: "e2", note: "GH₵ 20 short — customer change error, noted." },
+  { id: "sh3", employeeId: "e4", terminalId: "t2", branchId: "br1", status: "closed", openedAt: ago(60 * 9), closedAt: ago(60 * 4), openingFloat: 300, expectedCash: 1450, countedCash: 1430, salesCount: 22, salesTotal: 11980, byMethod: { cash: 1600, momo: 6106, card: 4000, bank: 2274 }, approvedBy: "e2", note: "GH₵ 20 short - customer change error, noted." },
   { id: "sh4", employeeId: "e2", terminalId: "t3", branchId: "br2", status: "closed", openedAt: ago(60 * 30), closedAt: ago(60 * 21), openingFloat: 200, expectedCash: 920, countedCash: 920, salesCount: 11, salesTotal: 4310, byMethod: { cash: 720, momo: 3590, card: 0, bank: 0 } },
   { id: "sh5", employeeId: "e3", terminalId: "t1", branchId: "br1", status: "closed", openedAt: ago(60 * 32), closedAt: ago(60 * 23), openingFloat: 300, expectedCash: 2210, countedCash: 2215, salesCount: 27, salesTotal: 9875, byMethod: { cash: 1910, momo: 5465, card: 2500, bank: 0 } },
 ];
@@ -150,7 +150,7 @@ export const activity: ActivityEvent[] = [
   { id: "a7", actorId: "e1", action: "Changed permissions", category: "employee", detail: "Granted “Resume another employee's held cart” to Kofi Boateng", branchId: "br1", createdAt: ago(60 * 5) },
   { id: "a8", actorId: "e4", action: "Closed shift", category: "cash", detail: "Till 2 · variance −GH₵ 20 · approved by Ama Serwaa", terminalId: "t2", branchId: "br1", createdAt: ago(60 * 4) },
   { id: "a9", actorId: "e7", action: "PIN locked", category: "auth", detail: "5 failed PIN attempts on Front Desk", terminalId: "t3", branchId: "br2", createdAt: ago(60 * 24 * 6) },
-  { id: "a10", actorId: "e1", action: "Suspended employee", category: "employee", detail: "Kojo Appiah — pending investigation", branchId: "br2", createdAt: ago(60 * 24 * 6 - 30) },
+  { id: "a10", actorId: "e1", action: "Suspended employee", category: "employee", detail: "Kojo Appiah - pending investigation", branchId: "br2", createdAt: ago(60 * 24 * 6 - 30) },
   { id: "a11", actorId: "e1", action: "Updated receipt footer", category: "settings", detail: "Business settings", branchId: "br1", createdAt: ago(60 * 24 * 2) },
 ];
 
@@ -168,7 +168,7 @@ export const heldCarts: HeldCart[] = [
 
 export const stockMovements: StockMovement[] = [
   { id: "m1", productId: "p1", type: "sale", delta: -1, actorId: "e3", createdAt: ago(6) },
-  { id: "m2", productId: "p9", type: "return", delta: 1, reason: "Refund OSU-T2-000233 — not resalable, moved to damaged", actorId: "e2", createdAt: ago(35) },
+  { id: "m2", productId: "p9", type: "return", delta: 1, reason: "Refund OSU-T2-000233 - not resalable, moved to damaged", actorId: "e2", createdAt: ago(35) },
   { id: "m3", productId: "p2", type: "damaged", delta: -1, reason: "Damaged in display", actorId: "e5", createdAt: ago(95) },
   { id: "m4", productId: "p5", type: "receipt", delta: 30, reason: "PO-0041 received", actorId: "e5", createdAt: ago(60 * 20) },
   { id: "m5", productId: "p6", type: "transfer_out", delta: -5, reason: "To Kumasi – Adum (TR-0007)", actorId: "e5", createdAt: ago(60 * 28) },
@@ -191,7 +191,7 @@ export const purchaseOrders: PurchaseOrder[] = [
 export const expenses: Expense[] = [
   { id: "x1", date: ago(60 * 5), category: "Utilities", description: "ECG prepaid top-up", amount: 600, method: "momo", branchId: "br1", actorId: "e6", status: "recorded", hasAttachment: true },
   { id: "x2", date: ago(60 * 24), category: "Transport", description: "Delivery to Kumasi branch", amount: 250, method: "cash", branchId: "br1", actorId: "e2", status: "recorded" },
-  { id: "x3", date: ago(60 * 24 * 3), category: "Rent", description: "Osu shop rent — November", amount: 4500, method: "bank", branchId: "br1", actorId: "e6", status: "recorded", hasAttachment: true },
+  { id: "x3", date: ago(60 * 24 * 3), category: "Rent", description: "Osu shop rent - November", amount: 4500, method: "bank", branchId: "br1", actorId: "e6", status: "recorded", hasAttachment: true },
   { id: "x4", date: ago(60 * 24 * 4), category: "Supplies", description: "Receipt paper rolls (x20)", amount: 180, method: "cash", branchId: "br1", actorId: "e2", status: "voided" },
   { id: "x5", date: ago(60 * 24 * 6), category: "Internet", description: "Fibre broadband", amount: 450, method: "momo", branchId: "br2", actorId: "e6", status: "recorded" },
 ];

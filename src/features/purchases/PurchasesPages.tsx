@@ -31,10 +31,10 @@ export function SuppliersPage() {
           {(data) => (
             <DataTable rows={data} rowKey={(s) => s.id} onRowClick={(row) => setEdit(row)} columns={[
               { key: "n", header: "Supplier", cell: (s) => <><p className="font-medium text-ink-900">{s.name}</p><p className="text-xs text-ink-500">{s.address}</p></> },
-              { key: "p", header: "Phone", cell: (s) => s.phone || "—" },
-              { key: "e", header: "Email", hideBelow: "md", cell: (s) => s.email ?? "—" },
+              { key: "p", header: "Phone", cell: (s) => s.phone || "-" },
+              { key: "e", header: "Email", hideBelow: "md", cell: (s) => s.email ?? "-" },
               { key: "o", header: "Open orders", align: "right", cell: (s) => s.openOrders },
-              { key: "b", header: "Owed", align: "right", cell: (s) => (s.balance ? <span className="font-medium text-rose-700">{formatMoney(s.balance)}</span> : "—") },
+              { key: "b", header: "Owed", align: "right", cell: (s) => (s.balance ? <span className="font-medium text-rose-700">{formatMoney(s.balance)}</span> : "-") },
             ]} />
           )}
         </DataState>
@@ -84,7 +84,7 @@ export function PurchasesPage() {
           {(data) => (
             <DataTable rows={data} rowKey={(p) => p.id} onRowClick={(p) => navigate(`/purchases/${p.id}`)} columns={[
               { key: "n", header: "PO", cell: (p) => <span className="font-medium text-ink-900">{p.number}</span> },
-              { key: "s", header: "Supplier", cell: (p) => suppliers.find((s) => s.id === p.supplierId)?.name ?? "—" },
+              { key: "s", header: "Supplier", cell: (p) => suppliers.find((s) => s.id === p.supplierId)?.name ?? "-" },
               { key: "d", header: "Created", hideBelow: "md", cell: (p) => formatDate(p.createdAt) },
               { key: "st", header: "Status", cell: (p) => <Badge tone={poStatus[p.status][1]}>{poStatus[p.status][0]}</Badge> },
               { key: "t", header: "Total", align: "right", cell: (p) => formatMoney(poTotal(p)) },
@@ -121,7 +121,7 @@ function NewPoModal({ open, onClose, onCreated }: { open: boolean; onClose: () =
   };
   useScan((code) => {
     const p = products.find((x) => x.barcode === code || x.sku === code);
-    if (!p) throw new Error("Not in your catalogue — add the product first");
+    if (!p) throw new Error("Not in your catalogue - add the product first");
     addProduct(p.id);
     return `Added ${p.name}`;
   }, open);
@@ -210,10 +210,10 @@ export function PurchaseDetailPage() {
           {(po.status === "draft" || po.status === "ordered") && <Button variant="ghost" onClick={() => setStatus("cancelled")}>Cancel order</Button>}
         </>}
       />
-      <Card className="mb-6"><DL cols={3} items={[{ label: "Created", value: formatDate(po.createdAt) }, { label: "Deliver to", value: branches.find((b) => b.id === po.branchId)?.name ?? "—" }, { label: "Total", value: formatMoney(poTotal(po)) }]} /></Card>
+      <Card className="mb-6"><DL cols={3} items={[{ label: "Created", value: formatDate(po.createdAt) }, { label: "Deliver to", value: branches.find((b) => b.id === po.branchId)?.name ?? "-" }, { label: "Total", value: formatMoney(poTotal(po)) }]} /></Card>
       <Card padded={false}>
         <DataTable rows={po.lines} rowKey={(l) => l.id ?? l.productId} columns={[
-          { key: "p", header: "Product", cell: (l) => products.find((p) => p.id === l.productId)?.name ?? "—" },
+          { key: "p", header: "Product", cell: (l) => products.find((p) => p.id === l.productId)?.name ?? "-" },
           { key: "q", header: "Ordered", align: "right", cell: (l) => l.quantity },
           { key: "r", header: "Received", align: "right", cell: (l) => <span className={l.received >= l.quantity ? "text-emerald-700" : ""}>{l.received}</span> },
           { key: "c", header: "Unit cost", align: "right", cell: (l) => formatMoney(l.unitCost) },

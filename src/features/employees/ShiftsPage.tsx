@@ -8,7 +8,7 @@ import { formatDateTime, formatMoney, formatTime, methodLabel } from "@/lib/form
 import type { PaymentMethod, Shift } from "@/types";
 
 export function VarianceBadge({ s }: { s: Shift }) {
-  if (s.status === "open" || s.countedCash === undefined) return <span className="text-xs text-ink-400">—</span>;
+  if (s.status === "open" || s.countedCash === undefined) return <span className="text-xs text-ink-400">-</span>;
   const v = s.countedCash - s.expectedCash;
   return <Badge tone={v === 0 ? "success" : Math.abs(v) > 10 ? "danger" : "warning"}>{v === 0 ? "Balanced" : `${v > 0 ? "+" : "−"}${formatMoney(Math.abs(v))}`}</Badge>;
 }
@@ -21,19 +21,19 @@ export function ShiftsPage() {
   const [emp, setEmp] = useState("");
   const [open, setOpen] = useState<Shift | null>(null);
   const emp_ = (id: string) => employees.find((e) => e.id === id);
-  const till = (id: string) => terminals.find((t) => t.id === id)?.name ?? "—";
+  const till = (id: string) => terminals.find((t) => t.id === id)?.name ?? "-";
   const [days, setDays] = useState("7");
   const rows = q.data.filter((s) => s.status === tab && (!emp || s.employeeId === emp) && (tab === "open" || Date.now() - new Date(s.openedAt).getTime() < Number(days) * 864e5));
   const openShifts = q.data.filter((s) => s.status === "open");
 
   const cols: Column<Shift>[] = [
-    { key: "emp", header: "Employee", cell: (s) => { const e = emp_(s.employeeId); return e ? <div className="flex items-center gap-2.5"><Avatar name={e.fullName} color={e.avatarColor} size="sm" /><span className="font-medium text-ink-900">{e.fullName}</span></div> : "—"; } },
+    { key: "emp", header: "Employee", cell: (s) => { const e = emp_(s.employeeId); return e ? <div className="flex items-center gap-2.5"><Avatar name={e.fullName} color={e.avatarColor} size="sm" /><span className="font-medium text-ink-900">{e.fullName}</span></div> : "-"; } },
     { key: "till", header: "Till", cell: (s) => till(s.terminalId) },
     { key: "opened", header: "Opened", cell: (s) => formatDateTime(s.openedAt) },
     { key: "closed", header: "Closed", hideBelow: "md", cell: (s) => (s.closedAt ? formatTime(s.closedAt) : <Badge tone="success" dot>Open</Badge>) },
     { key: "sales", header: "Sales", align: "right", cell: (s) => <span>{formatMoney(s.salesTotal)}<span className="block text-xs text-ink-400">{s.salesCount} sales</span></span> },
     { key: "expected", header: "Expected cash", align: "right", hideBelow: "lg", cell: (s) => formatMoney(s.expectedCash) },
-    { key: "counted", header: "Counted", align: "right", hideBelow: "lg", cell: (s) => (s.countedCash !== undefined ? formatMoney(s.countedCash) : "—") },
+    { key: "counted", header: "Counted", align: "right", hideBelow: "lg", cell: (s) => (s.countedCash !== undefined ? formatMoney(s.countedCash) : "-") },
     { key: "var", header: "Variance", align: "right", cell: (s) => <VarianceBadge s={s} /> },
   ];
 
@@ -70,7 +70,7 @@ export function ShiftsPage() {
 function ShiftDrawer({ shift, onClose }: { shift: Shift | null; onClose: () => void }) {
   const employees = useEmployees().data;
   const moves = useShiftSummary(shift?.id ?? null).data?.movements ?? [];
-  const name = (id?: string) => employees.find((e) => e.id === id)?.fullName ?? "—";
+  const name = (id?: string) => employees.find((e) => e.id === id)?.fullName ?? "-";
   return (
     <Drawer
       open={!!shift}

@@ -8,6 +8,7 @@ import {
   Avatar, Badge, Button, Callout, ConfirmDialog, DL, Drawer, EmptyState, Input, Modal, PinPad, SearchInput, Segmented, Select, Textarea, useToast,
 } from "@/components/ui";
 import { cn, formatMoney, formatTime, methodLabel, timeAgo } from "@/lib/format";
+import { detectNetwork, formatPhone, isValidGhanaPhone, networkLabel, normalizePhone, type MomoNetwork } from "@/lib/momo";
 import type { CartLine, Customer, HeldCart, PaymentLine, PaymentMethod, SaleReceipt } from "@/types";
 import { Receipt } from "./Receipt";
 
@@ -296,11 +297,11 @@ export function XReportModal({ open, onClose }: { open: boolean; onClose: () => 
   const shift = q.data?.shift;
   useEffect(() => { if (open) refetch(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <Modal open={open} onClose={onClose} title="X report" description="Mid-shift summary — does not close the shift" size="md" footer={<Button variant="secondary" icon={<LuPrinter className="size-4" />} onClick={() => window.print()}>Print</Button>}>
+    <Modal open={open} onClose={onClose} title="X report" description="Mid-shift summary - does not close the shift" size="md" footer={<Button variant="secondary" icon={<LuPrinter className="size-4" />} onClick={() => window.print()}>Print</Button>}>
       {q.loading ? <p className="text-sm text-ink-500">Loading…</p> : shift ? (
         <div className="space-y-5">
           <DL items={[
-            { label: "Employee", value: posUser?.fullName ?? "—" },
+            { label: "Employee", value: posUser?.fullName ?? "-" },
             { label: "Till", value: terminal?.name },
             { label: "Opened", value: formatTime(shift.openedAt) },
             { label: "Sales", value: <span className="num">{shift.salesCount} · {formatMoney(shift.salesTotal)}</span> },
@@ -341,7 +342,8 @@ export function PaymentModal({
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState("");
   const [ref, setRef] = useState("");
-  const [network, setNetwork] = useState("MTN");
+  const [phone, setPhone] = useState("");
+  const [networkOverride, setNetworkOverride] = useState<MomoNetwork | "">("");
   const [tenders, setTenders] = useState<PaymentLine[]>([]);
   const [stage, setStage] = useState<"pay" | "processing" | "done" | "error">("pay");
   const [receipt, setReceipt] = useState<SaleReceipt | null>(null);
@@ -349,8 +351,12 @@ export function PaymentModal({
   // The key belongs to the cart (owned by PosPage), so closing/reopening this modal can't create a second sale.
 
   useEffect(() => {
-    if (open) { setTenders([]); setStage("pay"); setMethod("cash"); setAmount(""); setRef(""); setReceipt(null); setError(""); }
+    if (open) { setTenders([]); setStage("pay"); setMethod("cash"); setAmount(""); setRef(""); setPhone(customer?.phone ?? ""); setNetworkOverride(""); setReceipt(null); setError(""); }
   }, [open, idempotencyKey]);
+
+  const detected = detectNetwork(phone);
+  const network: MomoNetwork = networkOverride || detected;
+  const phoneValid = isValidGhanaPhone(phone) && network !== "Unknown";
 
   const paid = tenders.reduce((s, t) => s + t.amount, 0);
   const remaining = Math.max(0, +(total - paid).toFixed(2));
@@ -361,8 +367,16 @@ export function PaymentModal({
   const addTender = () => {
     if (entered <= 0) return;
     if (method !== "cash" && entered > remaining) return;
-    if (method === "momo" && !ref.trim()) return;
-    setTenders((t) => [...t, { method, amount: +entered.toFixed(2), reference: method === "momo" ? `${network} ${ref}`.trim() : ref || undefined }]);
+    if (method === "momo") {
+      if (!phoneValid) return;
+      const normalized = normalizePhone(phone);
+      setTenders((t) => [...t, { method, amount: +entered.toFixed(2), reference: normalized, phone: normalized, network }]);
+      setAmount("");
+      setPhone("");
+      setNetworkOverride("");
+      return;
+    }
+    setTenders((t) => [...t, { method, amount: +entered.toFixed(2), reference: ref || undefined }]);
     setAmount("");
     setRef("");
   };
@@ -371,8 +385,9 @@ export function PaymentModal({
     if (!terminal) return;
     setStage("processing");
     try {
-      const r = await actions.checkout({ terminalId: terminal.id, lines, payments: tenders, customerId: customer?.id, cartDiscount, discountReason,
-        discountApprovalId, priceApprovalId, idempotencyKey });
+      const r = await actions.checkout({ terminalId: terminal.id, lines, payments: tenders, customerId: customer?.id,
+        customer: customer ? { name: customer.name, phone: customer.phone, email: customer.email } : undefined,
+        cartDiscount, discountReason, discountApprovalId, priceApprovalId, idempotencyKey });
       setReceipt({ ...r, servedBy: r.servedBy || posUser?.displayName || "", terminal: r.terminal || terminal.name, branch: r.branch || branch.name, customer: r.customer ?? customer?.name,
         business: r.business ?? (business ? { name: business.name, phone: business.phone, tin: business.tin } : undefined) });
       setStage("done");
@@ -392,6 +407,11 @@ export function PaymentModal({
             <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><LuCircleCheck className="size-9" /></div>
             <h2 className="mt-4 text-2xl font-semibold text-ink-900">Sale complete</h2>
             <p className="text-sm text-ink-500">Receipt {receipt.receiptNumber}</p>
+            {!!receipt.paymentNotices?.length && (
+              <div className="mt-3 w-full max-w-xs space-y-2 text-left">
+                {receipt.paymentNotices.map((notice, i) => <Callout key={i} tone="info">{notice}</Callout>)}
+              </div>
+            )}
             {!!receipt.change && (
               <div className="mt-6 rounded-2xl bg-amber-50 px-8 py-4 ring-1 ring-amber-200">
                 <p className="text-sm font-medium text-amber-800">Give change</p>
@@ -407,7 +427,7 @@ export function PaymentModal({
         </div>
       ) : stage === "error" ? (
         <div className="space-y-4 text-center">
-          <Callout tone="danger" title="Checkout didn't go through">{error} Your cart is still here. Retrying is safe — if the sale was saved, the same receipt is returned instead of charging again.</Callout>
+          <Callout tone="danger" title="Checkout didn't go through">{error} Your cart is still here. Retrying is safe - if the sale was saved, the same receipt is returned instead of charging again.</Callout>
           <div className="flex justify-center gap-2">
             <Button variant="secondary" onClick={onClose}>Back to cart</Button>
             <Button onClick={complete}>Retry</Button>
@@ -435,7 +455,7 @@ export function PaymentModal({
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTender(); } }}
-              hint={method !== "cash" ? "Can't be more than the remaining balance." : "Enter cash received — change is calculated."}
+              hint={method !== "cash" ? "Can't be more than the remaining balance." : "Enter cash received - change is calculated."}
             />
             {method === "cash" && (
               <div className="flex flex-wrap gap-2">
@@ -445,18 +465,22 @@ export function PaymentModal({
               </div>
             )}
             {method === "momo" && (
-              <div className="grid grid-cols-[120px_1fr] gap-3">
-                <Select label="Network" value={network} onChange={(e) => setNetwork(e.target.value)}>
-                  <option>MTN</option><option>Telecel</option><option>AT</option>
-                </Select>
-                <Input label="Transaction ID" required value={ref} onChange={(e) => setRef(e.target.value)} placeholder="From the customer's SMS" />
+              <div className="space-y-3">
+                <Input label="Customer MoMo number" required inputMode="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setNetworkOverride(""); }} placeholder="024 123 4567" hint="We detect the network from the number" error={phone && !isValidGhanaPhone(phone) ? "Enter a valid Ghana phone number" : undefined} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={network === "Unknown" ? "warning" : "success"}>{network === "Unknown" ? "Network not recognised" : `${networkLabel(network)} detected`}</Badge>
+                  <Select aria-label="Override network" className="w-36" value={networkOverride} onChange={(e) => setNetworkOverride(e.target.value as MomoNetwork | "")}>
+                    <option value="">Auto detect</option><option value="MTN">MTN</option><option value="Telecel">Telecel</option><option value="AT">AirtelTigo</option>
+                  </Select>
+                </div>
+                <Callout tone="info">When you complete the sale, we send a request to this number. The customer approves it on their phone.</Callout>
               </div>
             )}
             {(method === "card" || method === "bank") && <Input label="Reference" hint="Optional" value={ref} onChange={(e) => setRef(e.target.value)} />}
-            {method !== "cash" && (
-              <Callout tone="info">Recorded manually. Confirm you've seen the payment before adding it — it isn't verified electronically.</Callout>
+            {method !== "cash" && method !== "momo" && (
+              <Callout tone="info">Recorded manually. Confirm you've seen the payment before adding it - it isn't verified electronically.</Callout>
             )}
-            <Button block variant="outline" icon={<LuPlus className="size-4" />} disabled={entered <= 0 || (method !== "cash" && entered > remaining) || remaining === 0 || (method === "momo" && !ref.trim())} onClick={addTender}>
+            <Button block variant="outline" icon={<LuPlus className="size-4" />} disabled={entered <= 0 || (method !== "cash" && entered > remaining) || remaining === 0 || (method === "momo" && !phoneValid)} onClick={addTender}>
               Add {formatMoney(entered)} {methodLabel[method]}
             </Button>
           </div>
@@ -469,7 +493,7 @@ export function PaymentModal({
                 <div key={i} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-ink-200">
                   <div>
                     <p className="font-medium">{methodLabel[t.method]}</p>
-                    {t.reference && <p className="text-xs text-ink-500">{t.reference}</p>}
+                    {t.reference && <p className="text-xs text-ink-500">{t.method === "momo" ? `${t.network ?? detectNetwork(t.reference)} · ${formatPhone(t.reference)}` : t.reference}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="num">{formatMoney(t.amount)}</span>

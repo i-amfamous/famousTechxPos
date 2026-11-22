@@ -77,10 +77,18 @@ export async function requestPasswordReset(db: Db, emailIn: string) {
   const link = await issueLinkToken(db, u.id, "reset");
   await sendBrandedMail(email, "Reset your Famous TechX POS password", {
     greeting: `Hi ${u.full_name},`,
-    title: "Reset your password",
-    paragraphs: ["We received a request to reset the password for your Famous TechX POS account. Use the button below to choose a new one."],
+    title: "Let's get you back to selling",
+    paragraphs: [
+      "We received a request to reset the password for your Famous TechX POS account. You're in the right place - this takes less than a minute.",
+      "Your sales, stock and team are exactly where you left them. This link only changes how you sign in.",
+    ],
+    steps: [
+      "Tap the button below to open the secure password page.",
+      "Choose a strong new password (at least 8 characters, with upper and lower case letters and a number).",
+      "Sign in, then set your 4-digit POS PIN the first time you use a till.",
+    ],
     action: { label: "Reset my password", url: link, note: "This link is valid for 1 hour and can only be used once." },
-    footnote: "If this wasn't you, ignore this email — your password won't change.",
+    footnote: "If this wasn't you, ignore this email - your password won't change and nothing in your account is affected.",
   });
 }
 

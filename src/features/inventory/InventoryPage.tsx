@@ -37,7 +37,7 @@ export function InventoryPage() {
   // Scanning on this page (outside the scan window) jumps to the product's adjust dialog.
   useScan((code) => {
     const hit = q.data.find((p) => p.barcode === code || p.sku === code);
-    if (!hit) throw new Error("Not in your catalogue — use “Scan stock in” to add it");
+    if (!hit) throw new Error("Not in your catalogue - use “Scan stock in” to add it");
     setAdjust(hit);
     return `Opened ${hit.name}`;
   }, !scanMode && !adjust);
@@ -49,7 +49,7 @@ export function InventoryPage() {
     { key: "v", header: "Stock value", align: "right", hideBelow: "md", cell: (p) => formatMoney(Math.max(0, p.stock) * p.costPrice) },
     { key: "a", header: <span className="sr-only">Actions</span>, align: "right", cell: (p) => can("inventory.adjust") && <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); setAdjust(p); }}>Adjust</Button> },
   ];
-  const bname = (id: string) => branches.find((b) => b.id === id)?.name ?? "—";
+  const bname = (id: string) => branches.find((b) => b.id === id)?.name ?? "-";
 
   return (
     <>
@@ -75,7 +75,7 @@ export function InventoryPage() {
               <SearchInput className="sm:w-72" placeholder="Search products" value={search} onChange={(e) => setSearch(e.target.value)} />
               <Segmented value={filter} onChange={setFilter} options={[{ value: "all", label: "All" }, { value: "low", label: "Low" }, { value: "out", label: "Out" }]} />
             </FilterBar>
-            <DataState query={{ ...q, data: rows }} empty={<EmptyState icon={<LuBoxes className="size-7" />} title="Nothing here" description={filter === "all" ? "Scan items in or add products with opening stock." : "Good news — nothing in this list."} />}>
+            <DataState query={{ ...q, data: rows }} empty={<EmptyState icon={<LuBoxes className="size-7" />} title="Nothing here" description={filter === "all" ? "Scan items in or add products with opening stock." : "Good news - nothing in this list."} />}>
               {(data) => <DataTable columns={cols} rows={data} rowKey={(p) => p.id} />}
             </DataState>
           </>
@@ -88,11 +88,11 @@ export function InventoryPage() {
                 rowKey={(m) => m.id}
                 columns={[
                   { key: "d", header: "When", cell: (m) => formatDateTime(m.createdAt) },
-                  { key: "p", header: "Product", cell: (m) => q.data.find((p) => p.id === m.productId)?.name ?? "—" },
+                  { key: "p", header: "Product", cell: (m) => q.data.find((p) => p.id === m.productId)?.name ?? "-" },
                   { key: "t", header: "Type", cell: (m) => <Badge tone={moveLabel[m.type][1]}>{moveLabel[m.type][0]}</Badge> },
                   { key: "q", header: "Change", align: "right", cell: (m) => <span className={m.delta > 0 ? "font-medium text-emerald-700" : "font-medium text-rose-700"}>{m.delta > 0 ? "+" : ""}{m.delta}</span> },
-                  { key: "r", header: "Reason", hideBelow: "md", cell: (m) => <span className="text-ink-500">{m.reason ?? "—"}</span> },
-                  { key: "a", header: "By", hideBelow: "sm", cell: (m) => employees.find((e) => e.id === m.actorId)?.fullName ?? "—" },
+                  { key: "r", header: "Reason", hideBelow: "md", cell: (m) => <span className="text-ink-500">{m.reason ?? "-"}</span> },
+                  { key: "a", header: "By", hideBelow: "sm", cell: (m) => employees.find((e) => e.id === m.actorId)?.fullName ?? "-" },
                 ]}
               />
             )}
@@ -141,7 +141,7 @@ function ScanStockModal({ mode, onClose }: { mode: "receive" | "count" | null; o
 
   const addCode = (code: string) => {
     const p = products.find((x) => x.barcode === code || x.sku.toLowerCase() === code.toLowerCase() || x.variants?.some((v) => v.barcode === code));
-    if (!p) { setUnknown(code); return `New barcode ${code} — add the product`; }
+    if (!p) { setUnknown(code); return `New barcode ${code} - add the product`; }
     if (p.unit === "job") throw new Error(`${p.name} is a service (no stock)`);
     setLines((ls) => {
       const ex = ls.find((l) => l.product.id === p.id);
@@ -187,7 +187,7 @@ function ScanStockModal({ mode, onClose }: { mode: "receive" | "count" | null; o
       >
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-brand-50 p-3 ring-1 ring-brand-200">
           <LuScanBarcode className="size-5 text-brand-600" />
-          <span className="flex-1 text-sm text-ink-700">Ready — scan with a USB/Bluetooth scanner, camera or phone.</span>
+          <span className="flex-1 text-sm text-ink-700">Ready - scan with a USB/Bluetooth scanner, camera or phone.</span>
           <ScanButton size="sm" label="Camera / phone" />
         </div>
         <form className="mb-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); if (manual.trim()) { try { const r = addCode(manual.trim()); toast({ tone: "success", title: r }); } catch (er) { toast({ tone: "error", title: (er as Error).message }); } setManual(""); } }}>
