@@ -1,6 +1,6 @@
 /** Employees, roles, access and activity. */
 import { ok, type Route } from "../../http/router.js";
-import { forceSignOut, resendInvite, resetEmployeePassword, setMemberStatus, transferOwnership } from "./account-admin.service.js";
+import { deleteEmployee, forceSignOut, resendInvite, resetEmployeePassword, setMemberStatus, transferOwnership } from "./account-admin.service.js";
 import { listActivity, listSignIns } from "./activity.service.js";
 import { createEmployee, listEmployees, saveMemberAccess, updateEmployeeProfile } from "./employees.service.js";
 import { deleteRole, listPermissions, listRoles, saveRole } from "./roles.service.js";
@@ -15,6 +15,7 @@ export const peopleRoutes: Route[] = [
   { method: "get", path: "/employees", auth: "member", run: (c) => listEmployees(c.db, c.actor) },
   { method: "post", path: "/employees", auth: "member", run: (c) => createEmployee(c.db, c.actor, c.body) },
   { method: "patch", path: "/employees/:id", auth: "member", run: async (c) => { await updateEmployeeProfile(c.db, c.actor, c.params.id, c.body); return ok; } },
+  { method: "delete", path: "/employees/:id", auth: "member", run: async (c) => { await deleteEmployee(c.db, c.actor, c.params.id, c.body); return ok; } },
   { method: "put", path: "/employees/:id/access", auth: "member", run: async (c) => { await saveMemberAccess(c.db, c.actor, c.params.id, c.body); return ok; } },
   { method: "post", path: "/employees/:id/status", auth: "member", run: async (c) => { await setMemberStatus(c.db, c.actor, c.params.id, c.body); return ok; } },
   { method: "post", path: "/employees/:id/sign-out", auth: "member", run: async (c) => { await forceSignOut(c.db, c.actor, c.params.id); return ok; } },

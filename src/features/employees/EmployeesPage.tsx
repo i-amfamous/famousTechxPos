@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  LuCopy, LuEllipsisVertical, LuKeyRound, LuLogOut, LuMail, LuPencil, LuUserCheck, LuUserPlus, LuUserX, LuUsers,
+  LuCopy, LuEllipsisVertical, LuKeyRound, LuLogOut, LuMail, LuPencil, LuTrash2, LuUserCheck, LuUserPlus, LuUserX, LuUsers,
 } from "react-icons/lu";
 import { useSession } from "@/app/session";
 import { actions, useBranches, useEmployees, useRoles } from "@/services/api";
@@ -20,13 +20,13 @@ export function EmployeesPage() {
   const branches = useBranches().data;
   const navigate = useNavigate();
   const toast = useToast();
-  const { seatLimit: SEATS, can } = useSession();
+  const { seatLimit: SEATS, can, user } = useSession();
   const [tab, setTab] = useState<"all" | Employee["status"]>("all");
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("");
   const [branch, setBranch] = useState("");
   const [adding, setAdding] = useState(false);
-  const [confirm, setConfirm] = useState<{ e: Employee; kind: "suspend" | "deactivate" | "reactivate" | "pin" | "signout" } | null>(null);
+  const [confirm, setConfirm] = useState<{ e: Employee; kind: "suspend" | "deactivate" | "reactivate" | "pin" | "signout" | "delete" } | null>(null);
 
   const all = q.data;
   const counts = useMemo(() => ({
@@ -35,6 +35,7 @@ export function EmployeesPage() {
     invited: all.filter((e) => e.status === "invited").length,
     suspended: all.filter((e) => e.status === "suspended").length,
     deactivated: all.filter((e) => e.status === "deactivated").length,
+    deleted: all.filter((e) => e.status === "deleted").length,
   }), [all]);
   const seatsUsed = counts.active + counts.invited + counts.suspended;
 
@@ -53,7 +54,7 @@ export function EmployeesPage() {
       key: "name", header: "Employee",
       cell: (e) => (
         <div className="flex items-center gap-3">
-          <Avatar name={e.fullName} color={e.status === "deactivated" ? "bg-ink-400" : e.avatarColor} />
+          <Avatar name={e.fullName} color={e.status === "deactivated" || e.status === "deleted" ? "bg-ink-400" : e.avatarColor} />
           <div className="min-w-0">
             <p className="flex items-center gap-2 font-medium text-ink-900">{e.fullName}{e.isOwner && <Badge tone="brand">Owner</Badge>}</p>
             <p className="truncate text-xs text-ink-500">{e.employeeCode} · {e.email ?? e.phone}</p>
@@ -75,13 +76,19 @@ export function EmployeesPage() {
             items={[
               { label: "View & edit", icon: <LuPencil />, onClick: () => navigate(`/employees/${e.id}`) },
               ...(e.status === "invited" ? [{ label: "Resend invite", icon: <LuMail />, onClick: () => resendInvite(e.id, e.email, toast) }] : []),
-              { label: "Reset POS PIN", icon: <LuKeyRound />, onClick: () => setConfirm({ e, kind: "pin" }), disabled: e.status === "deactivated" },
-              { label: "Sign out everywhere", icon: <LuLogOut />, onClick: () => setConfirm({ e, kind: "signout" }), disabled: e.status !== "active" },
-              "divider",
-              e.status === "suspended" || e.status === "deactivated"
-                ? { label: "Reactivate", icon: <LuUserCheck />, onClick: () => setConfirm({ e, kind: "reactivate" }) }
-                : { label: "Suspend", icon: <LuUserX />, onClick: () => setConfirm({ e, kind: "suspend" }), disabled: e.isOwner },
-              ...(e.status !== "deactivated" ? [{ label: "Deactivate", icon: <LuUserX />, danger: true, onClick: () => setConfirm({ e, kind: "deactivate" }), disabled: e.isOwner }] : []),
+              ...(e.status !== "deleted" ? [
+                { label: "Reset POS PIN", icon: <LuKeyRound />, onClick: () => setConfirm({ e, kind: "pin" }), disabled: e.status === "deactivated" },
+                { label: "Sign out everywhere", icon: <LuLogOut />, onClick: () => setConfirm({ e, kind: "signout" }), disabled: e.status !== "active" },
+                "divider" as const,
+                e.status === "suspended" || e.status === "deactivated"
+                  ? { label: "Reactivate", icon: <LuUserCheck />, onClick: () => setConfirm({ e, kind: "reactivate" }) }
+                  : { label: "Suspend", icon: <LuUserX />, onClick: () => setConfirm({ e, kind: "suspend" }), disabled: e.isOwner },
+                ...(e.status !== "deactivated" ? [{ label: "Deactivate", icon: <LuUserX />, danger: true, onClick: () => setConfirm({ e, kind: "deactivate" }), disabled: e.isOwner }] : []),
+              ] : []),
+              ...(user.isOwner && !e.isOwner && e.status !== "deleted" ? [
+                "divider" as const,
+                { label: "Delete account", icon: <LuTrash2 />, danger: true, onClick: () => setConfirm({ e, kind: "delete" }) },
+              ] : []),
             ]}
           />
         </div>
@@ -95,6 +102,7 @@ export function EmployeesPage() {
     reactivate: { title: `Reactivate ${confirm.e.fullName}?`, message: "They'll be able to sign in again with their existing role and branches.", label: "Reactivate", reason: false },
     pin: { title: `Reset ${confirm.e.displayName}'s PIN?`, message: "Their current PIN stops working. They'll create a new one the next time they tap their name on the POS.", label: "Reset PIN", reason: false },
     signout: { title: `Sign ${confirm.e.displayName} out everywhere?`, message: "Ends all their back-office and POS sessions right away.", label: "Sign out", reason: false },
+    delete: { title: `Delete ${confirm.e.fullName}'s account?`, message: "Permanently removes their login and access. Their sales, shifts and records stay in your history with their name — nothing is erased. This can't be undone.", label: "Delete account", reason: true },
   }[confirm.kind];
 
   return (
@@ -123,6 +131,7 @@ export function EmployeesPage() {
             { value: "invited", label: "Invited", count: counts.invited },
             { value: "suspended", label: "Suspended", count: counts.suspended },
             { value: "deactivated", label: "Deactivated", count: counts.deactivated },
+            ...(counts.deleted ? [{ value: "deleted" as const, label: "Deleted", count: counts.deleted }] : []),
           ]}
         />
         <FilterBar>
@@ -164,10 +173,11 @@ export function EmployeesPage() {
           onConfirm={async (reason) => {
             const e = confirm.e;
             try {
-              if (confirm.kind === "pin") await actions.resetPin(e.id);
+              if (confirm.kind === "delete") await actions.deleteEmployee(e.id, reason ?? "");
+              else if (confirm.kind === "pin") await actions.resetPin(e.id);
               else if (confirm.kind === "signout") await actions.employeeAdmin("sign_out", e.id);
               else await actions.employeeAdmin("set_status", e.id, { status: confirm.kind === "reactivate" ? "active" : confirm.kind === "suspend" ? "suspended" : "deactivated", reason });
-              toast({ tone: "success", title: `${confirmCopy.label}: ${e.fullName}` });
+              toast({ tone: "success", title: `${confirmCopy.label}: ${e.fullName}`, ...(confirm.kind === "delete" ? { body: "Their history is kept in your records." } : {}) });
             } catch (er) {
               toast({ tone: "error", title: "Couldn't complete that", body: (er as Error).message });
             }

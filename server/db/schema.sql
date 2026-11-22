@@ -141,6 +141,9 @@ CREATE TABLE IF NOT EXISTS business_members (
   pin_locked_until DATETIME(3) NULL,
   last_sign_in_at DATETIME(3) NULL,
   deactivated_at DATETIME(3) NULL,
+  -- Soft delete: the membership row stays so sales, shifts and reports still show their name.
+  deleted_at DATETIME(3) NULL,
+  deleted_by CHAR(36) NULL,
   created_at DATETIME(3) NOT NULL,
   UNIQUE (organization_id, user_id),
   UNIQUE (organization_id, employee_code)

@@ -372,4 +372,26 @@ describe("back office", () => {
     assert.equal(me.member.isOwner, true);
     assert.equal((await ok("get", "/me", { token: S.owner })).member.isOwner, false);
   });
+
+  it("owner can delete an employee without erasing their history", async () => {
+    // After the ownership transfer, S.manager is the owner and S.owner is a plain member.
+    await err("owner_only", "delete", `/employees/${S.cashierId}`, { token: S.owner, body: { reason: "Left" } });
+    await err("cannot_delete_self", "delete", `/employees/${S.managerId}`, { token: S.manager, body: { reason: "x" } });
+    await err("reason_required", "delete", `/employees/${S.cashierId}`, { token: S.manager, body: {} });
+
+    const saleBefore = await ok("get", `/sales/${S.sale1}`, { token: S.manager });
+    await ok("delete", `/employees/${S.cashierId}`, { token: S.manager, body: { reason: "Left the business" } });
+
+    // Access ends immediately.
+    await err("unauthorized", "get", "/me", { token: S.cashier });
+    await err("unauthorized", "post", "/auth/login", { body: { identifier: "0245550101", password: "cashier-pass-1" } });
+    await err("employee_deleted", "post", `/employees/${S.cashierId}/status`, { token: S.manager, body: { status: "active" } });
+    await err("already_deleted", "delete", `/employees/${S.cashierId}`, { token: S.manager, body: { reason: "again" } });
+
+    // List shows them as deleted; their sale and its recorded name survive untouched.
+    const list = await ok("get", "/employees", { token: S.manager });
+    assert.equal(list.find((e: { id: string }) => e.id === S.cashierId).status, "deleted");
+    assert.deepEqual(await ok("get", `/sales/${S.sale1}`, { token: S.manager }), saleBefore);
+    await ok("get", `/sales/${S.sale1}/receipt`, { token: S.manager });
+  });
 });

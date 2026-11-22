@@ -82,7 +82,7 @@ export const http = {
   post: <T = { ok: true }>(path: string, body: unknown = {}) => request<T>("POST", path, { body }),
   put: <T = { ok: true }>(path: string, body: unknown = {}) => request<T>("PUT", path, { body }),
   patch: <T = { ok: true }>(path: string, body: unknown = {}) => request<T>("PATCH", path, { body }),
-  delete: <T = { ok: true }>(path: string) => request<T>("DELETE", path),
+  delete: <T = { ok: true }>(path: string, body?: unknown) => request<T>("DELETE", path, { body }),
 };
 
 /** WebSocket URL on the API server (phone-scanner relay). */

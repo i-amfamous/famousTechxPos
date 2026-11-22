@@ -6,8 +6,8 @@ import { Badge, useToast, type Tone } from "@/components/ui";
 import { actions } from "@/services/api";
 import type { ActivityEvent, Employee } from "@/types";
 
-export const statusTone: Record<Employee["status"], Tone> = { active: "success", invited: "info", suspended: "warning", deactivated: "neutral" };
-export const statusLabel: Record<Employee["status"], string> = { active: "Active", invited: "Invited", suspended: "Suspended", deactivated: "Deactivated" };
+export const statusTone: Record<Employee["status"], Tone> = { active: "success", invited: "info", suspended: "warning", deactivated: "neutral", deleted: "danger" };
+export const statusLabel: Record<Employee["status"], string> = { active: "Active", invited: "Invited", suspended: "Suspended", deactivated: "Deactivated", deleted: "Deleted" };
 
 export function StatusBadge({ status }: { status: Employee["status"] }) {
   return <Badge tone={statusTone[status]} dot>{statusLabel[status]}</Badge>;

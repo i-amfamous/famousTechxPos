@@ -11,7 +11,7 @@ import { bool, clean } from "../../core/values.js";
 import { requirePassword, requirePerm, type Actor } from "../../auth/access.js";
 import { hashSecret, randomPassword } from "../../auth/crypto.js";
 import { issueLinkToken } from "../../auth/link-tokens.js";
-import { revokeUserSessions } from "../../auth/sessions.js";
+import { revokeMemberSessions, revokeUserSessions } from "../../auth/sessions.js";
 import { memberInOrg } from "./employees.service.js";
 
 export async function setMemberStatus(db: Db, actor: Actor, memberId: string, i: { status: string; reason?: string | null }) {
@@ -62,6 +62,34 @@ export async function resendInvite(db: Db, actor: Actor, memberId: string) {
   const biz = await one(db, "SELECT name FROM businesses WHERE id = ?", [actor.orgId]);
   const ok = await sendMail(u.email, `Your invitation to ${biz?.name} on Famous TechX POS`, `Hi ${m.full_name},\n\nOpen this link to set your password and get started:\n\n${link}\n`);
   return { ok: true, emailed: ok ? (u.email as string) : undefined, inviteLink: ok ? undefined : link };
+}
+
+/**
+ * Owner-only permanent removal of a login. This is a SOFT delete: the membership row and every
+ * business record that points at it (sales, shifts, stock movements, approvals, receipts…) are left
+ * untouched, so history and reports still show the employee's name. Only access is revoked.
+ */
+export async function deleteEmployee(db: Db, actor: Actor, memberId: string, i: { reason?: string | null } = {}) {
+  if (!actor.isOwner) throw forbidden("owner_only", "Only the owner can delete employee accounts.");
+  requirePassword(actor);
+  const m = await memberInOrg(db, actor, memberId, true);
+  if (memberId === actor.memberId) throw bad("cannot_delete_self", "You can't delete your own account.");
+  if (bool(m.is_owner)) throw forbidden("owner_cannot_be_deleted", "The owner's account can't be deleted. Transfer ownership first.");
+  if (m.deleted_at) throw bad("already_deleted", "This employee has already been deleted.");
+  if (!clean(i.reason)) throw bad("reason_required", "Please give a reason. It is kept in the activity log.");
+  const when = nowSql();
+  await db.tx(async (tx) => {
+    // Status deactivated frees the seat; deleted_at marks it permanent and is exposed to the UI.
+    await tx.run(
+      "UPDATE business_members SET status = 'deactivated', deleted_at = ?, deleted_by = ?, deactivated_at = ?, pin_hash = NULL, pin_failed = 0, pin_locked_until = NULL WHERE id = ?",
+      [when, actor.memberId, when, memberId],
+    );
+    // Invalidate outstanding invite / reset links and end this business's sessions only.
+    await tx.run("UPDATE auth_tokens SET used_at = ? WHERE member_id = ? AND used_at IS NULL", [when, memberId]);
+    await revokeMemberSessions(tx, m.user_id, actor.orgId);
+    await audit(tx, { orgId: actor.orgId, actorId: actor.memberId }, "employee", "Deleted employee",
+      `${m.full_name} — ${clean(i.reason)}`, { entityType: "member", entityId: memberId });
+  });
 }
 
 export async function transferOwnership(db: Db, actor: Actor, memberId: string) {

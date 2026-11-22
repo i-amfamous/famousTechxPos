@@ -54,6 +54,7 @@ export async function resetMemberPin(db: Db, actor: Actor, memberId: string) {
   requirePerm(actor, "employees.manage", { password: true });
   const m = await one(db, "SELECT * FROM business_members WHERE id = ? AND organization_id = ?", [memberId, actor.orgId]);
   if (!m) throw notFound("Employee not found.");
+  if (m.deleted_at) throw bad("employee_deleted", "This employee account was deleted.");
   await db.run("UPDATE business_members SET pin_hash = NULL, pin_failed = 0, pin_locked_until = NULL WHERE id = ?", [memberId]);
   await audit(db, { orgId: actor.orgId, actorId: actor.memberId }, "employee", "Reset POS PIN", m.full_name, { entityType: "member", entityId: memberId });
 }

@@ -5,7 +5,7 @@
 
 export type ID = string;
 
-export type EmployeeStatus = "invited" | "active" | "suspended" | "deactivated";
+export type EmployeeStatus = "invited" | "active" | "suspended" | "deactivated" | "deleted";
 export type RoleKey =
   | "owner"
   | "admin"
@@ -59,6 +59,8 @@ export interface Employee {
   roleId: ID;
   branchIds: ID[];
   status: EmployeeStatus;
+  /** Set when the account was permanently removed (soft delete). History is preserved. */
+  deletedAt?: string;
   hasPin: boolean;
   pinLocked?: boolean;
   hireDate: string;

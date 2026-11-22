@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
-  LuArrowLeft, LuCircleCheck, LuCircleX, LuCrown, LuEllipsisVertical, LuKeyRound, LuLogOut, LuMail, LuShieldCheck, LuUserCheck, LuUserX,
+  LuArrowLeft, LuCircleCheck, LuCircleX, LuCrown, LuEllipsisVertical, LuKeyRound, LuLogOut, LuMail, LuShieldCheck, LuTrash2, LuUserCheck, LuUserX,
 } from "react-icons/lu";
 import { useSession } from "@/app/session";
 import {
@@ -24,8 +24,8 @@ export function EmployeeDetailPage() {
   const roles = useRoles().data;
   const navigate = useNavigate();
   const toast = useToast();
-  const { can } = useSession();
-  const [confirm, setConfirm] = useState<null | "suspend" | "deactivate" | "reactivate" | "pin" | "password" | "signout">(null);
+  const { can, user } = useSession();
+  const [confirm, setConfirm] = useState<null | "suspend" | "deactivate" | "reactivate" | "pin" | "password" | "signout" | "delete">(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   if (q.loading) return <div className="space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-96 w-full" /></div>;
@@ -56,17 +56,24 @@ export function EmployeeDetailPage() {
             <Menu
               trigger={(p) => <Button {...p} variant="secondary" icon={<LuEllipsisVertical className="size-4" />}>More</Button>}
               items={[
-                { label: "Reset POS PIN", icon: <LuKeyRound />, onClick: () => setConfirm("pin"), disabled: !e.hasPin },
-                { label: "Reset password", icon: <LuKeyRound />, onClick: () => setConfirm("password") },
-                { label: "Sign out everywhere", icon: <LuLogOut />, onClick: () => setConfirm("signout") },
-                "divider",
-                { label: "Suspend", icon: <LuUserX />, onClick: () => setConfirm("suspend"), disabled: e.isOwner || e.status !== "active" },
-                { label: "Deactivate", icon: <LuUserX />, danger: true, onClick: () => setConfirm("deactivate"), disabled: e.isOwner || e.status === "deactivated" },
+                ...(e.status !== "deleted" ? [
+                  { label: "Reset POS PIN", icon: <LuKeyRound />, onClick: () => setConfirm("pin"), disabled: !e.hasPin },
+                  { label: "Reset password", icon: <LuKeyRound />, onClick: () => setConfirm("password") },
+                  { label: "Sign out everywhere", icon: <LuLogOut />, onClick: () => setConfirm("signout") },
+                  "divider" as const,
+                  { label: "Suspend", icon: <LuUserX />, onClick: () => setConfirm("suspend"), disabled: e.isOwner || e.status !== "active" },
+                  { label: "Deactivate", icon: <LuUserX />, danger: true, onClick: () => setConfirm("deactivate"), disabled: e.isOwner || e.status === "deactivated" },
+                ] : []),
+                ...(user.isOwner && !e.isOwner && e.status !== "deleted" ? [
+                  "divider" as const,
+                  { label: "Delete account", icon: <LuTrash2 />, danger: true, onClick: () => setConfirm("delete") },
+                ] : []),
               ]}
             />
           </div>
         </div>
         {e.status === "suspended" && <div className="mt-4"><Callout tone="warning" title="Suspended">This employee can't sign in to the back office or POS. Their records are kept.</Callout></div>}
+        {e.status === "deleted" && <div className="mt-4"><Callout tone="danger" title="Account deleted">This login was permanently removed and access can't be restored. All of their sales, shifts and records remain in your history with their name.</Callout></div>}
         {e.pinLocked && <div className="mt-3"><Callout tone="danger" title="POS PIN locked">Too many wrong PIN attempts. Reset the PIN so they can sign in again.</Callout></div>}
       </Card>
 
@@ -103,9 +110,10 @@ export function EmployeeDetailPage() {
         <ConfirmDialog
           open
           onClose={() => setConfirm(null)}
-          tone={confirm === "suspend" || confirm === "deactivate" ? "danger" : "primary"}
-          requireReason={confirm === "suspend" || confirm === "deactivate"}
-          title={{ suspend: "Suspend employee?", deactivate: "Deactivate employee?", reactivate: "Reactivate employee?", pin: "Reset POS PIN?", password: "Reset password?", signout: "Sign out everywhere?" }[confirm]}
+          tone={confirm === "suspend" || confirm === "deactivate" || confirm === "delete" ? "danger" : "primary"}
+          requireReason={confirm === "suspend" || confirm === "deactivate" || confirm === "delete"}
+          title={{ suspend: "Suspend employee?", deactivate: "Deactivate employee?", reactivate: "Reactivate employee?", pin: "Reset POS PIN?", password: "Reset password?", signout: "Sign out everywhere?", delete: `Delete ${e.fullName}'s account?` }[confirm]}
+          reasonLabel={confirm === "delete" ? "Reason (saved in the activity log)" : undefined}
           message={{
             suspend: "They're signed out immediately and blocked until reactivated.",
             deactivate: "For staff who have left. Access ends now; history is kept.",
@@ -113,10 +121,17 @@ export function EmployeeDetailPage() {
             pin: "They'll create a new PIN next time they use the POS.",
             password: e.email ? `A reset link will be emailed to ${e.email}.` : "A new temporary password will be shown once.",
             signout: "All their sessions on every device end now.",
+            delete: "Permanently removes their login and access. Their sales, shifts and records stay in your history with their name — nothing is erased. This can't be undone.",
           }[confirm]}
-          confirmLabel="Confirm"
+          confirmLabel={confirm === "delete" ? "Delete account" : "Confirm"}
           onConfirm={async (reason) => {
             try {
+              if (confirm === "delete") {
+                await actions.deleteEmployee(e.id, reason ?? "");
+                toast({ tone: "success", title: `${e.fullName} deleted`, body: "Their history is kept in your records." });
+                navigate("/employees");
+                return;
+              }
               if (confirm === "pin") await actions.resetPin(e.id);
               else if (confirm === "signout") await actions.employeeAdmin("sign_out", e.id);
               else if (confirm === "password") {
@@ -410,30 +425,35 @@ function SignInsTab({ e }: { e: Employee }) {
 }
 
 /* ───── Security ───── */
-function SecurityTab({ e, onAction }: { e: Employee; onAction: (k: "suspend" | "deactivate" | "pin" | "password" | "signout") => void }) {
+function SecurityTab({ e, onAction }: { e: Employee; onAction: (k: "suspend" | "deactivate" | "pin" | "password" | "signout" | "delete") => void }) {
+  const { user } = useSession();
+  const deleted = e.status === "deleted";
   return (
     <div className="max-w-3xl space-y-6">
       <Card>
         <CardHeader title="POS PIN" description="Used to unlock the till and approve actions. Only the employee knows it." />
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3"><LuKeyRound className="size-5 text-ink-400" /><PinBadge e={e} /></div>
-          <Button variant="secondary" onClick={() => onAction("pin")} disabled={!e.hasPin}>Reset PIN</Button>
+          <Button variant="secondary" onClick={() => onAction("pin")} disabled={!e.hasPin || deleted}>Reset PIN</Button>
         </div>
       </Card>
       <Card>
         <CardHeader title="Password & sessions" />
         <div className="space-y-4">
-          <div className="flex items-center justify-between"><div><p className="text-sm font-medium">Reset password</p><p className="text-xs text-ink-500">{e.email ? "Emails a reset link." : "Issues a new temporary password."}</p></div><Button variant="secondary" onClick={() => onAction("password")}>Reset</Button></div>
-          <div className="flex items-center justify-between"><div><p className="text-sm font-medium">Sign out everywhere</p><p className="text-xs text-ink-500">Ends all back-office and POS sessions now.</p></div><Button variant="secondary" icon={<LuLogOut className="size-4" />} onClick={() => onAction("signout")}>Sign out</Button></div>
+          <div className="flex items-center justify-between"><div><p className="text-sm font-medium">Reset password</p><p className="text-xs text-ink-500">{e.email ? "Emails a reset link." : "Issues a new temporary password."}</p></div><Button variant="secondary" onClick={() => onAction("password")} disabled={deleted}>Reset</Button></div>
+          <div className="flex items-center justify-between"><div><p className="text-sm font-medium">Sign out everywhere</p><p className="text-xs text-ink-500">Ends all back-office and POS sessions now.</p></div><Button variant="secondary" icon={<LuLogOut className="size-4" />} onClick={() => onAction("signout")} disabled={deleted}>Sign out</Button></div>
         </div>
       </Card>
       {!e.isOwner ? (
         <Card className="ring-rose-200">
           <CardHeader title={<span className="text-rose-700">Danger zone</span>} />
           <div className="space-y-4">
-            <div className="flex items-center justify-between"><div><p className="text-sm font-medium">Suspend</p><p className="text-xs text-ink-500">Temporarily block access, e.g. during an investigation.</p></div><Button variant="secondary" disabled={e.status !== "active"} onClick={() => onAction("suspend")}>Suspend</Button></div>
-            <div className="flex items-center justify-between"><div><p className="text-sm font-medium">Deactivate</p><p className="text-xs text-ink-500">They've left the business. History stays; the seat is freed.</p></div><Button variant="danger" disabled={e.status === "deactivated"} onClick={() => onAction("deactivate")}>Deactivate</Button></div>
-            <p className="flex items-center gap-2 text-xs text-ink-500"><LuShieldCheck className="size-4" /> Employees with sales history can't be deleted, only deactivated.</p>
+            <div className="flex items-center justify-between"><div><p className="text-sm font-medium">Suspend</p><p className="text-xs text-ink-500">Temporarily block access, e.g. during an investigation.</p></div><Button variant="secondary" disabled={deleted || e.status !== "active"} onClick={() => onAction("suspend")}>Suspend</Button></div>
+            <div className="flex items-center justify-between"><div><p className="text-sm font-medium">Deactivate</p><p className="text-xs text-ink-500">They've left the business. History stays; the seat is freed.</p></div><Button variant="danger" disabled={deleted || e.status === "deactivated"} onClick={() => onAction("deactivate")}>Deactivate</Button></div>
+            {user.isOwner && !deleted && (
+              <div className="flex items-center justify-between border-t border-rose-200 pt-4"><div><p className="text-sm font-medium text-rose-700">Delete account</p><p className="text-xs text-ink-500">Permanently removes their login. Their sales, shifts and records stay in your history.</p></div><Button variant="danger" icon={<LuTrash2 className="size-4" />} onClick={() => onAction("delete")}>Delete</Button></div>
+            )}
+            <p className="flex items-center gap-2 text-xs text-ink-500"><LuShieldCheck className="size-4" /> Deleting an employee never erases their data — it only revokes their access. Only the owner can delete accounts.</p>
           </div>
         </Card>
       ) : (

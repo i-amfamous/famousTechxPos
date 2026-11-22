@@ -32,6 +32,11 @@ export async function revokeUserSessions(db: Db, userId: string, exceptSessionId
   await db.run("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL AND id <> ?", [nowSql(), userId, exceptSessionId ?? ""]);
 }
 
+/** Ends sessions for one membership only — a person can belong to several businesses. */
+export async function revokeMemberSessions(db: Db, userId: string, orgId: string) {
+  await db.run("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND organization_id = ? AND revoked_at IS NULL", [nowSql(), userId, orgId]);
+}
+
 export interface SessionInfo { id: string; userId: string; method: "password" | "pin"; terminalId: string | null; memberId: string | null; orgId: string | null }
 
 export async function readSession(db: Db, token: string | undefined): Promise<SessionInfo> {
@@ -62,6 +67,7 @@ export async function loadActor(db: Db, s: SessionInfo): Promise<Actor | null> {
     ? await one(db, "SELECT * FROM business_members WHERE id = ?", [s.memberId])
     : await one(db, "SELECT * FROM business_members WHERE user_id = ? AND status IN ('active','invited') ORDER BY is_owner DESC, created_at LIMIT 1", [s.userId]);
   if (!member) return null;
+  if (member.deleted_at) throw unauthorized("This account has been removed from the business. Contact the owner.");
   if (member.status !== "active") {
     if (member.status === "invited") return null;
     throw unauthorized("Your account isn't active. Ask the owner or a manager.");

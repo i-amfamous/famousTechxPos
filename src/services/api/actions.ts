@@ -247,6 +247,17 @@ export const actions = {
     return r;
   },
 
+  /**
+   * Owner-only soft delete. The account loses all access, but every sale, shift and record that
+   * mentions this employee stays intact and still shows their name.
+   */
+  async deleteEmployee(memberId: string, reason: string) {
+    if (DEMO) return pause();
+    await http.delete(`/employees/${memberId}`, { reason });
+    invalidate("employees", "activity", "signins", "sales", "shifts", "dashboard", "roles", "reports");
+    refreshSession();
+  },
+
   async updateEmployeeProfile(memberId: string, patch: { fullName?: string; displayName?: string; phone?: string; email?: string; employeeCode?: string; hireDate?: string }) {
     if (DEMO) return pause();
     await http.patch(`/employees/${memberId}`, patch);

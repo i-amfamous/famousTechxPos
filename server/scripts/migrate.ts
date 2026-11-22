@@ -27,6 +27,13 @@ async function main() {
   // CREATE TABLE IF NOT EXISTS won't add new columns to an existing database.
   const memberCol = await one(db, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'auth_tokens' AND COLUMN_NAME = 'member_id'");
   if (!memberCol) await db.run("ALTER TABLE auth_tokens ADD COLUMN member_id CHAR(36) NULL");
+  const deletedAtCol = await one(db, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'business_members' AND COLUMN_NAME = 'deleted_at'");
+  if (!deletedAtCol) {
+    await db.run("ALTER TABLE business_members ADD COLUMN deleted_at DATETIME(3) NULL");
+    await db.run("ALTER TABLE business_members ADD COLUMN deleted_by CHAR(36) NULL");
+  }
+  // Index must be created after the columns exist (existing DBs get them via the ALTER above).
+  await db.run("CREATE INDEX IF NOT EXISTS members_deleted ON business_members (organization_id, deleted_at)");
   await seedReferenceData(db);
   await db.run("DELETE FROM schema_migrations WHERE version = ?", ["2026-11-21"]);
   await db.run("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)", ["2026-11-21", new Date().toISOString().slice(0, 23).replace("T", " ")]);

@@ -12,7 +12,9 @@ import { ALL_PERMS } from "../../auth/permission-catalogue.js";
 
 /** `full` = include contact details and access overrides (employees.view). */
 export const mapMember = (m: Row, branchIds: string[], overrides: { permission: string; effect: string }[], full: boolean) => ({
-  id: m.id, fullName: m.full_name, displayName: m.display_name, roleId: m.role_id, branchIds, status: m.status,
+  id: m.id, fullName: m.full_name, displayName: m.display_name, roleId: m.role_id, branchIds,
+  status: m.deleted_at ? "deleted" : m.status,
+  deletedAt: iso(m.deleted_at) ?? undefined,
   avatarColor: m.avatar_color ?? "bg-brand-600", isOwner: bool(m.is_owner), hasPin: !!m.pin_hash,
   pinLocked: !!m.pin_locked_until && m.pin_locked_until > nowSql(),
   employeeCode: m.employee_code,
@@ -35,9 +37,10 @@ export async function listEmployees(db: Db, actor: Actor) {
     ov.filter((o) => o.member_id === m.id).map((o) => ({ permission: o.perm_key, effect: o.effect })), full || m.id === actor.memberId));
 }
 
-export async function memberInOrg(db: Db, actor: Actor, memberId: string) {
+export async function memberInOrg(db: Db, actor: Actor, memberId: string, allowDeleted = false) {
   const m = await one(db, "SELECT * FROM business_members WHERE id = ? AND organization_id = ?", [memberId, actor.orgId]);
   if (!m) throw notFound("Employee not found.");
+  if (m.deleted_at && !allowDeleted) throw bad("employee_deleted", "This employee account was deleted. Their history is kept; add them again as a new employee if needed.");
   return m;
 }
 
