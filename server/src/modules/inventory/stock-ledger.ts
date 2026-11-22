@@ -32,7 +32,7 @@ export async function applyStock(db: Db, s: { orgId: string; branchId: string; p
   const before = n(inv!.quantity);
   const after = Math.round((before + s.delta) * 1000) / 1000;
   if (after < 0 && s.allowNegative === false) {
-    throw new AppError(409, "insufficient_stock", `Not enough stock: ${p.name} (${fmtQty(before)} available)`);
+    throw new AppError(409, "insufficient_stock", `Only ${fmtQty(before)} of ${p.name} is left in stock.`);
   }
   await db.run("UPDATE inventory SET quantity = ?, updated_at = ? WHERE id = ?", [after, nowSql(), inv!.id]);
   await db.run(`INSERT INTO stock_movements (id, organization_id, branch_id, product_id, variant_id, movement_type, quantity_delta, quantity_before, quantity_after, reason, reference_type, reference_id, actor_id, created_at)

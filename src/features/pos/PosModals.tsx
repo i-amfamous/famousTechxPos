@@ -8,6 +8,7 @@ import {
   Avatar, Badge, Button, Callout, ConfirmDialog, DL, Drawer, EmptyState, Input, Modal, PinPad, SearchInput, Segmented, Textarea, useToast,
 } from "@/components/ui";
 import { cn, formatMoney, formatTime, methodLabel, timeAgo } from "@/lib/format";
+import { exportPrintable, printReceipt, type ExportReport } from "@/lib/export";
 import { DEMO } from "@/lib/http";
 import { openPaystackDialog } from "@/lib/paystack";
 import { detectNetwork, formatPhone, normalizePhone } from "@/lib/momo";
@@ -293,13 +294,30 @@ export function CashMovementModal({ open, onClose, onDone }: { open: boolean; on
 
 /* ═════════════ X report (mid-shift) ═════════════ */
 export function XReportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { posUser, terminal, shiftId } = useSession();
+  const { posUser, terminal, shiftId, business } = useSession();
   const q = useShiftSummary(open ? shiftId : null);
   const refetch = q.refetch;
   const shift = q.data?.shift;
   useEffect(() => { if (open) refetch(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const print = () => {
+    if (!shift) return;
+    const report: ExportReport = {
+      filename: "famous-x-report",
+      title: "X report",
+      subtitle: `Mid-shift summary · ${posUser?.fullName ?? "Employee"} · ${terminal?.name ?? "Till"}`,
+      business,
+      columns: [{ key: "detail", header: "Detail" }, { key: "value", header: "Value", align: "right" }],
+      rows: [
+        ["Opened", formatTime(shift.openedAt)],
+        ["Sales", `${shift.salesCount} · ${formatMoney(shift.salesTotal)}`],
+        ...(Object.keys(shift.byMethod) as PaymentMethod[]).map((m) => [`${methodLabel[m]}${m === "cash" ? " (after change)" : ""}`, formatMoney(shift.byMethod[m])]),
+      ],
+      summary: [{ label: "Expected cash in drawer", value: formatMoney(shift.expectedCash) }],
+    };
+    exportPrintable(report);
+  };
   return (
-    <Modal open={open} onClose={onClose} title="X report" description="Mid-shift summary - does not close the shift" size="md" footer={<Button variant="secondary" icon={<LuPrinter className="size-4" />} onClick={() => window.print()}>Print</Button>}>
+    <Modal open={open} onClose={onClose} title="X report" description="Mid-shift summary - does not close the shift" size="md" footer={<Button variant="secondary" icon={<LuPrinter className="size-4" />} onClick={print} disabled={!shift}>Print</Button>}>
       {q.loading ? <p className="text-sm text-ink-500">Loading…</p> : shift ? (
         <div className="space-y-5">
           <DL items={[
@@ -491,7 +509,7 @@ export function PaymentModal({
                   <div className="receipt-tear print:hidden" aria-hidden />
                 </div>
               </div>
-              <Button size="sm" icon={<LuPrinter className="size-4" />} onClick={() => { setPrintRun((n) => n + 1); window.print(); }}>
+              <Button size="sm" icon={<LuPrinter className="size-4" />} onClick={() => { setPrintRun((n) => n + 1); printReceipt(receipt); }}>
                 Print
               </Button>
             </div>

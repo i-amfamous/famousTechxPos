@@ -50,9 +50,9 @@ async function verifyInlinePayments(p: CheckoutInput): Promise<CheckoutInput> {
   for (const pay of payments) {
     if (pay.method !== "momo" || !pay.paystackReference) continue;
     const result = await verifyPaystackTransaction(pay.paystackReference);
-    if (!result.success) throw bad("paystack_not_paid", "Paystack hasn't confirmed this payment yet. Wait for the dialog to finish and try again.");
+    if (!result.success) throw bad("paystack_not_paid", "The payment isn't confirmed yet. Finish the payment prompt and try again.");
     if (Math.abs(result.pesewas - cents(pay.amount)) > 1)
-      throw bad("paystack_amount_mismatch", "The amount Paystack confirmed doesn't match this payment.");
+      throw bad("paystack_amount_mismatch", "The payment amount didn't match this sale. Please try again.");
   }
   return { ...p, payments };
 }
@@ -133,7 +133,7 @@ async function dispatchMomo(db: Db, orgId: string, saleId: string, inputPayments
 export async function checkout(db: Db, actor: Actor, p: CheckoutInput) {
   requirePerm(actor, "pos.sell");
   const clientKey = clean(p.idempotencyKey);
-  if (!clientKey) throw bad("idempotency_key_required", "Missing idempotency key.");
+  if (!clientKey) throw bad("idempotency_key_required", "We couldn't start this sale. Please try again.");
   // Scope the key to the cashier so two devices generating the same key can't steal each other's receipt.
   const key = `${actor.memberId}:${clientKey}`;
 
@@ -232,7 +232,7 @@ async function checkoutTx(tx: Db, actor: Actor, p: CheckoutInput, key: string): 
   const payments = (p.payments ?? []).map((pay) => ({ ...pay, storedRef: paymentReference(pay) }));
   let paid = 0, cash = 0, nonCash = 0;
   for (const pay of payments) {
-    if (!PAYMENT_METHODS.includes(pay.method)) throw bad("invalid_payment", "Unknown payment method.");
+    if (!PAYMENT_METHODS.includes(pay.method)) throw bad("invalid_payment", "Choose a valid payment method.");
     const amt = cents(pay.amount);
     if (!(amt > 0)) throw bad("invalid_payment", "Payment amounts must be above zero.");
     paid += amt;

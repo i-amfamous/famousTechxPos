@@ -37,11 +37,11 @@ export interface PaystackInitResult {
 
 /** Sends the request-to-pay prompt. Returns Paystack's reference for webhook matching. */
 export async function initializePaystackPayment(input: { phone: string; amount: number; externalId: string; email?: string | null }): Promise<PaystackInitResult> {
-  if (!config.paystack.secretKey) throw new Error("Paystack isn't configured.");
+  if (!config.paystack.secretKey) throw new Error("Payments aren't set up yet. Please try again later.");
   const phone = localPhone(input.phone);
   const pesewas = Math.round(Number(input.amount) * 100);
-  if (!/^0\d{9}$/.test(phone)) throw new Error("Invalid mobile money number.");
-  if (!(pesewas > 0)) throw new Error("Invalid mobile money amount.");
+  if (!/^0\d{9}$/.test(phone)) throw new Error("Enter a valid mobile money number.");
+  if (!(pesewas > 0)) throw new Error("Enter a payment amount above zero.");
 
   const reference = `FTX-${randomUUID()}`;
   const res = await fetch(`${API}/transaction/initialize`, {
@@ -61,7 +61,7 @@ export async function initializePaystackPayment(input: { phone: string; amount: 
     signal: AbortSignal.timeout(9000),
   });
   const json = await res.json() as { status?: boolean; message?: string; data?: { reference?: string; authorization_url?: string } };
-  if (!res.ok || json?.status !== true) throw new Error(json?.message ?? `Paystack returned ${res.status}`);
+  if (!res.ok || json?.status !== true) throw new Error("We couldn't start the payment. Please try again.");
   return {
     reference: String(json.data?.reference ?? reference),
     authorizationUrl: String(json.data?.authorization_url ?? ""),
@@ -83,7 +83,7 @@ export interface PaystackInlineInit {
  */
 export async function initializePaystackInline(input: { amount: number; email?: string | null; phone?: string | null }): Promise<PaystackInlineInit> {
   if (!config.paystack.secretKey || !config.paystack.publicKey)
-    throw bad("paystack_not_configured", "Paystack isn't configured on this server.");
+    throw bad("paystack_not_configured", "Payments aren't set up yet. Please try again later.");
 
   const pesewas = Math.round(Number(input.amount) * 100);
   if (!(pesewas > 0)) throw bad("invalid_amount", "Enter an amount above zero.");
@@ -111,7 +111,7 @@ export async function initializePaystackInline(input: { amount: number; email?: 
     signal: AbortSignal.timeout(9000),
   });
   const json = await res.json() as { status?: boolean; message?: string; data?: { reference?: string } };
-  if (!res.ok || json?.status !== true) throw bad("paystack_init_failed", json?.message ?? "Paystack couldn't start the payment.");
+  if (!res.ok || json?.status !== true) throw bad("paystack_init_failed", "We couldn't start the payment. Please try again.");
   return {
     reference: String(json.data?.reference ?? reference),
     publicKey: config.paystack.publicKey,

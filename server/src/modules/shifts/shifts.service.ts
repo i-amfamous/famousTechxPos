@@ -110,7 +110,7 @@ export async function openShift(db: Db, actor: Actor, i: { terminalId: string; o
 
 export async function recordCashMovement(db: Db, actor: Actor, shiftId: string, i: { type: string; amount?: number; reason: string; approvalId?: string | null }) {
   requirePerm(actor, "shift.cash_movement");
-  if (!["paid_in", "paid_out", "drop", "no_sale"].includes(i.type)) throw bad("invalid_type", "Unknown cash movement type.");
+  if (!["paid_in", "paid_out", "drop", "no_sale"].includes(i.type)) throw bad("invalid_type", "Choose a valid cash movement type.");
   if (!clean(i.reason)) throw bad("reason_required", "Please give a reason.");
   const amount = i.type === "no_sale" ? 0 : money(cents(i.amount));
   if (i.type !== "no_sale" && !(amount > 0)) throw bad("amount_required", "Enter an amount.");

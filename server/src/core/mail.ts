@@ -72,28 +72,28 @@ export function mailDiagnostics() {
 
 /** Verifies credentials with Brevo. Returns a readable reason when it fails. */
 export async function verifyMail(): Promise<{ ok: boolean; message: string }> {
-  if (!mailConfigured()) return { ok: false, message: "MAIL_FROM and either BREVO_API_KEY or SMTP_HOST/SMTP_USER/SMTP_PASS must be set." };
+  if (!mailConfigured()) return { ok: false, message: "Email isn't set up yet. Add the email sender and provider details, then try again." };
   if (useBrevo()) {
     try {
       const r = await brevoFetch("/account");
-      if (r.ok) return { ok: true, message: `Brevo API accepted the key (account ${r.body.email ?? "unknown"}).` };
+      if (r.ok) return { ok: true, message: "Email is set up and ready to send." };
       const hint = /unrecognised IP|authorised_ips/i.test(r.body.message ?? "")
-        ? " Brevo's IP allowlist is blocking this machine - add it in Brevo → Security → Authorised IPs." : "";
-      return { ok: false, message: `Brevo API ${r.status}: ${r.body.message ?? "verification failed"}.${hint}` };
-    } catch (e) {
-      return { ok: false, message: `Brevo API error: ${(e as Error).message}` };
+        ? " This server's address isn't allowed by your email provider yet. Add it in the provider's security settings and try again." : "";
+      return { ok: false, message: `Email couldn't be verified. Check your email provider settings and try again.${hint}` };
+    } catch {
+      return { ok: false, message: "Email couldn't be verified right now. Check your email provider settings and try again." };
     }
   }
   try {
     const t = await getTransport();
     await t.verify?.();
-    return { ok: true, message: `SMTP ${config.smtp.host}:${config.smtp.port} accepted the credentials.` };
+    return { ok: true, message: "Email is set up and ready to send." };
   } catch (e) {
     const err = e as { code?: string; message?: string };
     const hint = /EAUTH|535|authentication/i.test(`${err.code} ${err.message}`)
-      ? " Brevo rejects the login when the SMTP key is wrong, or when your IP is not in Brevo → Security → Authorised IPs (run `npm run mail:check` to see the exact reason)."
+      ? " The email username or password may be wrong, or this server's address may need to be allowed in the provider's security settings."
       : "";
-    return { ok: false, message: `${err.code ?? "SMTP_ERROR"}: ${err.message ?? "verification failed"}.${hint}` };
+    return { ok: false, message: `Email couldn't be verified. Check your email provider settings and try again.${hint}` };
   }
 }
 

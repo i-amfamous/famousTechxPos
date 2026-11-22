@@ -27,7 +27,7 @@ export async function adjustStock(db: Db, actor: Actor, i: { branchId: string; p
     if (!p) throw notFound("Product not found.");
     const cur = n((await one(tx, "SELECT quantity FROM inventory WHERE branch_id = ? AND product_id = ? AND variant_key = ?", [i.branchId, i.productId, i.variantId ?? ""]))?.quantity);
     const delta = i.mode === "add" ? q : i.mode === "remove" ? -q : i.mode === "set" ? q - cur : NaN;
-    if (Number.isNaN(delta)) throw bad("invalid_mode", "Unknown adjustment type.");
+    if (Number.isNaN(delta)) throw bad("invalid_mode", "Choose a valid stock adjustment type.");
     if (delta === 0) return { quantity: cur };
     const type = /^(damaged|expired)/i.test(clean(i.reason)) ? "damaged" : "adjustment";
     const after = await applyStock(tx, { orgId: actor.orgId, branchId: i.branchId, productId: i.productId, variantId: i.variantId, delta, type, reason: clean(i.reason), refType: "adjustment", actorId: actor.memberId, allowNegative: false });

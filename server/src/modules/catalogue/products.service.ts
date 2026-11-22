@@ -139,7 +139,7 @@ export async function updateProduct(db: Db, actor: Actor, id: string, p: Partial
   if (p.unit !== undefined) set("unit", clean(p.unit) || "pc");
   if (p.taxable !== undefined) set("taxable", !!p.taxable);
   if (p.reorderLevel !== undefined) set("reorder_level", n(p.reorderLevel));
-  if (p.status !== undefined) { if (!["active", "archived"].includes(p.status)) throw bad("invalid_status", "Unknown status."); set("status", p.status); }
+  if (p.status !== undefined) { if (!["active", "archived"].includes(p.status)) throw bad("invalid_status", "Choose a valid product status."); set("status", p.status); }
   if (!sets.length) return;
   set("updated_at", nowSql());
   try {

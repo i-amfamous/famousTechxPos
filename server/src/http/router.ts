@@ -53,7 +53,7 @@ export const ok = { ok: true } as const;
 /** The required `branchId` query parameter used by branch-scoped lists. */
 export function branchQuery(c: RequestContext): string {
   const branchId = c.query.branchId;
-  if (!branchId) throw new AppError(400, "branch_required", "branchId is required.");
+  if (!branchId) throw new AppError(400, "branch_required", "Choose a branch and try again.");
   return branchId;
 }
 

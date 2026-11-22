@@ -5,6 +5,8 @@ import {
   Avatar, Badge, Button, Card, DataState, DataTable, DL, Drawer, EmptyState, FilterBar, PageHeader, Select, StatCard, Tabs, type Column,
 } from "@/components/ui";
 import { formatDateTime, formatMoney, formatTime, methodLabel } from "@/lib/format";
+import { exportPrintable, type ExportReport } from "@/lib/export";
+import { useSession } from "@/app/session";
 import type { PaymentMethod, Shift } from "@/types";
 
 export function VarianceBadge({ s }: { s: Shift }) {
@@ -70,7 +72,35 @@ export function ShiftsPage() {
 function ShiftDrawer({ shift, onClose }: { shift: Shift | null; onClose: () => void }) {
   const employees = useEmployees().data;
   const moves = useShiftSummary(shift?.id ?? null).data?.movements ?? [];
+  const { business } = useSession();
   const name = (id?: string) => employees.find((e) => e.id === id)?.fullName ?? "-";
+  const print = () => {
+    if (!shift) return;
+    const variance = shift.countedCash === undefined ? null : +(shift.countedCash - shift.expectedCash).toFixed(2);
+    const report: ExportReport = {
+      filename: `famous-shift-${shift.status}`,
+      title: shift.status === "open" ? "Shift in progress" : "Z report",
+      subtitle: `${name(shift.employeeId)} · ${formatDateTime(shift.openedAt)}`,
+      business,
+      columns: [{ key: "detail", header: "Detail" }, { key: "value", header: "Value", align: "right" }],
+      rows: [
+        ["Opened", formatDateTime(shift.openedAt)],
+        ["Closed", shift.closedAt ? formatDateTime(shift.closedAt) : "Still open"],
+        ["Sales", `${shift.salesCount} · ${formatMoney(shift.salesTotal)}`],
+        ...(Object.keys(shift.byMethod) as PaymentMethod[]).map((m) => [methodLabel[m], formatMoney(shift.byMethod[m])]),
+        ["Opening float", formatMoney(shift.openingFloat)],
+        ...moves.map((m) => [`${m.type === "paid_in" ? "Cash in" : m.type === "paid_out" ? "Cash out" : m.type === "drop" ? "Drop to safe" : "No sale"} · ${m.reason} · ${name(m.actorId)}`, `${m.type === "paid_in" ? "+" : "−"}${formatMoney(m.amount)}`]),
+        ...(shift.approvedBy ? [["Variance approved by", name(shift.approvedBy)]] : []),
+        ...(shift.note ? [["Note", shift.note]] : []),
+      ],
+      summary: [
+        { label: "Expected cash", value: formatMoney(shift.expectedCash) },
+        { label: "Counted cash", value: shift.countedCash === undefined ? "-" : formatMoney(shift.countedCash) },
+        { label: "Variance", value: variance === null ? "-" : `${variance > 0 ? "+" : variance < 0 ? "−" : ""}${formatMoney(Math.abs(variance))}` },
+      ],
+    };
+    exportPrintable(report);
+  };
   return (
     <Drawer
       open={!!shift}
@@ -78,7 +108,7 @@ function ShiftDrawer({ shift, onClose }: { shift: Shift | null; onClose: () => v
       width="lg"
       title={shift?.status === "open" ? "Shift in progress" : "Z report"}
       description={shift ? `${name(shift.employeeId)} · ${formatDateTime(shift.openedAt)}` : undefined}
-      footer={<Button variant="secondary" icon={<LuPrinter className="size-4" />} onClick={() => window.print()}>Print</Button>}
+      footer={<Button variant="secondary" icon={<LuPrinter className="size-4" />} onClick={print} disabled={!shift}>Print</Button>}
     >
       {shift && (
         <div className="space-y-6">

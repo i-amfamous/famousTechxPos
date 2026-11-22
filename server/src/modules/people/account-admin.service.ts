@@ -19,7 +19,7 @@ export async function setMemberStatus(db: Db, actor: Actor, memberId: string, i:
   const m = await memberInOrg(db, actor, memberId);
   if (bool(m.is_owner)) throw forbidden("owner_cannot_be_changed", "The owner's account can't be changed by others.");
   if (memberId === actor.memberId) throw bad("cannot_change_own_status", "You can't change your own status.");
-  if (!["active", "suspended", "deactivated"].includes(i.status)) throw bad("invalid_status", "Unknown status.");
+  if (!["active", "suspended", "deactivated"].includes(i.status)) throw bad("invalid_status", "Choose a valid account status.");
   if (i.status !== "active" && !clean(i.reason)) throw bad("reason_required", "Please give a reason.");
   await db.run("UPDATE business_members SET status = ?, deactivated_at = ? WHERE id = ?", [i.status, i.status === "deactivated" ? nowSql() : null, memberId]);
   if (i.status !== "active") await revokeUserSessions(db, m.user_id); // instant sign-out everywhere

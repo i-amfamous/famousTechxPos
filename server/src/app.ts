@@ -56,7 +56,7 @@ export function createApp(db: Db) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof AppError) return res.status(err.status).json({ error: err.code, message: err.message, ...err.extra });
-    if ((err as { type?: string })?.type === "entity.parse.failed") return res.status(400).json({ error: "bad_json", message: "Invalid request." });
+    if ((err as { type?: string })?.type === "entity.parse.failed") return res.status(400).json({ error: "bad_json", message: "That request couldn't be read. Please try again." });
     console.error(err);
     res.status(500).json({ error: "server_error", message: "Something went wrong on the server. Please try again." });
   });

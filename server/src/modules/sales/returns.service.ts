@@ -13,7 +13,7 @@ import { myOpenShift } from "../shifts/shifts.service.js";
 
 export async function refundSale(db: Db, actor: Actor, saleId: string, i: { items: { saleItemId: string; quantity: number }[]; reason: string; restock: boolean; method: string; approvalId?: string | null; terminalId?: string | null }) {
   if (!clean(i.reason)) throw bad("reason_required", "Please give a reason.");
-  if (!PAYMENT_METHODS.includes(i.method)) throw bad("invalid_payment", "Unknown refund method.");
+  if (!PAYMENT_METHODS.includes(i.method)) throw bad("invalid_payment", "Choose a valid refund method.");
   return db.tx(async (tx) => {
     const s = await one(tx, "SELECT * FROM sales WHERE id = ? AND organization_id = ? FOR UPDATE", [saleId, actor.orgId]);
     if (!s) throw notFound("Sale not found.");

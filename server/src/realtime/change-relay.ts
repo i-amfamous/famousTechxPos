@@ -64,7 +64,7 @@ export function attachChangeRelay(server: Server, db: Db) {
       const branchIds = row.branch_id ? new Set([String(row.branch_id)]) : null;
       return { orgId: String(row.organization_id), branchIds };
     }
-    throw new Error("A session or till token is required.");
+    throw new Error("Sign in or unlock a till first.");
   };
 
   server.on("upgrade", (req, socket, head) => {

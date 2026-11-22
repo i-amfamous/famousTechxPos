@@ -43,7 +43,7 @@ type Query = Record<string, string | number | boolean | null | undefined>;
 interface Options { query?: Query; body?: unknown; signal?: AbortSignal }
 
 async function request<T>(method: string, path: string, { query, body, signal }: Options = {}): Promise<T> {
-  if (DEMO) throw new AppError("The server isn't configured. Set VITE_API_URL in .env.", "demo");
+  if (DEMO) throw new AppError("This demo isn't connected to a live server.", "demo");
   const url = new URL(API_URL + path, window.location.origin); // API_URL may be relative ("/api" via the dev proxy)
   for (const [k, v] of Object.entries(query ?? {})) if (v != null && v !== "") url.searchParams.set(k, String(v));
 

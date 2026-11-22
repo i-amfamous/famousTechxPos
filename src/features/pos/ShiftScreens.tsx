@@ -4,7 +4,8 @@ import { LuArrowLeft, LuCircleCheck, LuClock, LuLock, LuPrinter, LuShieldCheck }
 import { useSession } from "@/app/session";
 import { actions, useShiftSummary } from "@/services/api";
 import { Avatar, Badge, Button, Callout, Card, CardHeader, Input, Textarea, useToast } from "@/components/ui";
-import { cn, formatMoney, formatTime, methodLabel } from "@/lib/format";
+import { cn, formatDateTime, formatMoney, formatTime, methodLabel } from "@/lib/format";
+import { exportPrintable, type ExportReport } from "@/lib/export";
 import type { PaymentMethod } from "@/types";
 import { ApprovalModal } from "./PosModals";
 
@@ -101,7 +102,7 @@ export function OpenShiftPage() {
 export function CloseShiftPage() {
   const navigate = useNavigate();
   const toast = useToast();
-  const { posUser, setShiftOpen, setPosUser, shiftId, terminal, settings } = useSession();
+  const { posUser, setShiftOpen, setPosUser, shiftId, terminal, settings, business, branch } = useSession();
   const q = useShiftSummary(shiftId);
   const shift = q.data?.shift;
   const moves = q.data?.movements ?? [];
@@ -121,6 +122,32 @@ export function CloseShiftPage() {
   if (!shift) return <TerminalShell title="Close shift" back={() => navigate("/pos")}><Callout tone="info" title="No open shift on this till">Open a shift from the lock screen to start selling.</Callout></TerminalShell>;
   const variance = +(counted - shift.expectedCash).toFixed(2);
   const needsApproval = touched && Math.abs(variance) > threshold;
+  const print = () => {
+    const report: ExportReport = {
+      filename: "famous-z-report",
+      title: "Z report",
+      subtitle: `${posUser?.fullName ?? "Employee"} · ${terminal?.name ?? "Till"} · ${branch.name}`,
+      business,
+      columns: [{ key: "detail", header: "Detail" }, { key: "value", header: "Value", align: "right" }],
+      rows: [
+        ["Opened", formatDateTime(shift.openedAt)],
+        ["Closed", formatDateTime(new Date().toISOString())],
+        ["Sales", `${shift.salesCount} · ${formatMoney(shift.salesTotal)}`],
+        ...(Object.keys(shift.byMethod) as PaymentMethod[]).map((m) => [methodLabel[m], formatMoney(shift.byMethod[m])]),
+        ["Opening float", formatMoney(shift.openingFloat)],
+        ...moves.filter((m) => m.type !== "no_sale").map((m) => [`${m.type === "paid_in" ? "Cash in" : m.type === "paid_out" ? "Cash out" : "Cash drop"} · ${m.reason}`, `${m.type === "paid_in" ? "+" : "−"}${formatMoney(m.amount)}`]),
+        ...(q.data?.refundsCash ? [["Cash refunds", `−${formatMoney(q.data.refundsCash)}`]] : []),
+        ["Counted cash", formatMoney(counted)],
+        ...(shift.note ? [["Note", shift.note]] : []),
+      ],
+      summary: [
+        { label: "Expected cash", value: formatMoney(shift.expectedCash) },
+        { label: "Counted cash", value: formatMoney(counted) },
+        { label: "Variance", value: `${variance > 0 ? "+" : variance < 0 ? "−" : ""}${formatMoney(Math.abs(variance))}` },
+      ],
+    };
+    exportPrintable(report);
+  };
 
   const close = async (apprId?: string | null) => {
     if (!shiftId) return;
@@ -145,7 +172,7 @@ export function CloseShiftPage() {
           <h2 className="mt-4 text-2xl font-semibold">Z report saved</h2>
           <p className="mt-1 text-sm text-ink-500">Counted {formatMoney(counted)} · Variance {variance >= 0 ? "+" : ""}{formatMoney(variance)}</p>
           <div className="mt-6 flex flex-col gap-2">
-            <Button size="lg" icon={<LuPrinter className="size-5" />} onClick={() => window.print()}>Print Z report</Button>
+            <Button size="lg" icon={<LuPrinter className="size-5" />} onClick={print}>Print Z report</Button>
             <Button size="lg" variant="secondary" icon={<LuLock className="size-5" />} onClick={async () => { if (terminal) await actions.lockTerminal(); setPosUser(null); navigate("/pos/lock"); }}>Lock terminal</Button>
           </div>
         </Card>

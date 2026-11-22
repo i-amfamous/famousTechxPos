@@ -8,7 +8,7 @@ import {
   Pager, SearchInput, Select, Textarea, useToast, type Column,
 } from "@/components/ui";
 import { formatDateTime, formatMoney, methodLabel } from "@/lib/format";
-import { exportCsv as downloadCsv, exportPrintable, type ExportReport } from "@/lib/export";
+import { exportCsv as downloadCsv, exportPrintable, printReceipt, type ExportReport } from "@/lib/export";
 import type { PaymentMethod, Sale, SaleStatus } from "@/types";
 import { Receipt } from "@/features/pos/Receipt";
 import { ApprovalModal, type ApprovalRequest } from "@/features/pos/PosModals";
@@ -113,6 +113,12 @@ export function SaleDetailPage() {
   if (!sale) return <EmptyState title="Sale not found" description="It may be at another branch, or you only have access to your own sales." action={<Link to="/sales" className="text-sm font-medium text-brand-700">Back to sales</Link>} />;
   const cashier = employees.find((e) => e.id === sale.cashierId);
   const canRefund = (sale.status === "completed" || sale.status === "partially_refunded");
+  const receipt = {
+    reprint: true, receiptNumber: sale.receiptNumber, createdAt: sale.createdAt, servedBy: cashier?.displayName ?? "", terminal: terminals.find((t) => t.id === sale.terminalId)?.name ?? "",
+    branch: branches.find((b) => b.id === sale.branchId)?.name ?? "", customer: customers.find((c) => c.id === sale.customerId)?.name,
+    business: business ? { name: business.name, phone: business.phone, tin: business.tin } : undefined,
+    items: sale.items, subtotal: sale.subtotal, discountTotal: sale.discountTotal, taxTotal: sale.taxTotal, total: sale.total, payments: sale.payments, change: sale.changeDue,
+  };
   const doVoid = async (reason: string, approvalId?: string) => {
     try { await actions.voidSale(sale.id, reason, approvalId); toast({ tone: "success", title: "Sale voided" }); }
     catch (e) { toast({ tone: "error", title: "Couldn't void sale", body: (e as Error).message }); }
@@ -126,7 +132,7 @@ export function SaleDetailPage() {
         description={formatDateTime(sale.createdAt)}
         actions={
           <>
-            <Button variant="secondary" icon={<LuPrinter className="size-4" />} onClick={() => window.print()}>Reprint</Button>
+            <Button variant="secondary" icon={<LuPrinter className="size-4" />} onClick={() => printReceipt(receipt)}>Reprint</Button>
             {canRefund && <Button variant="secondary" icon={<LuUndo2 className="size-4" />} onClick={() => setRefund(true)}>Refund</Button>}
             {sale.status === "completed" && !sale.refundedTotal && <Button variant="dangerGhost" icon={<LuBan className="size-4" />} onClick={() => setVoiding(true)}>Void</Button>}
           </>
@@ -186,12 +192,7 @@ export function SaleDetailPage() {
           </Card>
         </div>
         <div className="hidden lg:block">
-          <Receipt className="print-area" data={{
-            reprint: true, receiptNumber: sale.receiptNumber, createdAt: sale.createdAt, servedBy: cashier?.displayName ?? "", terminal: terminals.find((t) => t.id === sale.terminalId)?.name ?? "",
-            branch: branches.find((b) => b.id === sale.branchId)?.name ?? "", customer: customers.find((c) => c.id === sale.customerId)?.name,
-            business: business ? { name: business.name, phone: business.phone, tin: business.tin } : undefined,
-            items: sale.items, subtotal: sale.subtotal, discountTotal: sale.discountTotal, taxTotal: sale.taxTotal, total: sale.total, payments: sale.payments, change: sale.changeDue,
-          }} />
+          <Receipt className="print-area" data={receipt} />
         </div>
       </div>
       <RefundModal open={refund} onClose={() => setRefund(false)} sale={sale} limit={user.isOwner ? Infinity : can("sales.refund") ? role.limits.maxRefundAmount : 0}

@@ -17,7 +17,7 @@ export interface PaystackWebhookInput {
 
 export async function handlePaystackWebhook(input: PaystackWebhookInput) {
   if (!input.rawBody || !input.signature || !verifyPaystackSignature(input.rawBody, input.signature))
-    throw bad("invalid_paystack_signature", "Invalid Paystack signature.");
+    throw bad("invalid_paystack_signature", "We couldn't confirm this payment. Please try again.");
 
   const data = (input.body?.data ?? {}) as Record<string, unknown>;
   if (input.body?.event !== "charge.success" || data.status !== "success") return { ok: true, ignored: true };

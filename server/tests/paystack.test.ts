@@ -107,7 +107,7 @@ describe("Paystack mobile money", () => {
     const raw = Buffer.from(JSON.stringify(body));
     await assert.rejects(
       () => handlePaystackWebhook({ db, body, rawBody: raw, signature: "bad" }),
-      /Invalid Paystack signature/,
+      /couldn't confirm this payment/i,
     );
 
     const changes: string[] = [];

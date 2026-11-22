@@ -4,6 +4,8 @@
  */
 import { before, describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { nowSql } from "../src/core/time.js";
 import type { Db } from "../src/core/db.js";
 import { AppError } from "../src/core/errors.js";
 import { captureMail, outbox } from "../src/core/mail.js";
@@ -331,6 +333,25 @@ describe("back office", () => {
     assert.equal((await ok("get", "/notifications", { token: S.cashier })).some((x: any) => x.type === "low_stock"), false);
     await ok("post", "/notifications/read", { token: S.owner });
     assert.ok((await ok("get", "/notifications", { token: S.owner })).every((x: any) => x.read));
+  });
+
+  it("hides notifications sent before a person joined and keeps them unread", async () => {
+    const oldId = randomUUID();
+    await db.run("INSERT INTO notifications (id, organization_id, member_id, audience_perm, type, title, body, read_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+      [oldId, S.org, null, "pos.sell", "low_stock", "Older notice", "This notice was sent before the new account existed.", null, nowSql(new Date(Date.now() - 86_400_000))]);
+
+    const added = await ok("post", "/employees", { token: S.owner, body: { fullName: "New Cashier", phone: "0245550199", roleId: S.roles.cashier.id, branchIds: [S.branch], inviteMethod: "temp_password" } });
+    const token = (await ok("post", "/auth/login", { body: { identifier: "0245550199", password: added.tempPassword } })).token;
+
+    assert.equal((await ok("get", "/notifications", { token })).some((x: any) => x.id === oldId), false);
+    await ok("post", "/notifications/read", { token });
+    const oldRow = (await db.all("SELECT read_by FROM notifications WHERE id = ?", [oldId]))[0]!;
+    assert.equal(JSON.parse(oldRow.read_by ?? "[]").includes(added.memberId), false);
+
+    const newId = randomUUID();
+    await db.run("INSERT INTO notifications (id, organization_id, member_id, audience_perm, type, title, body, read_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+      [newId, S.org, null, "pos.sell", "low_stock", "Newer notice", "This notice was sent after the new account existed.", null, nowSql(new Date(Date.now() + 60_000))]);
+    assert.ok((await ok("get", "/notifications", { token })).some((x: any) => x.id === newId));
   });
 
   it("edits roles and per-employee access", async () => {
