@@ -6,7 +6,8 @@ import { refundSale, voidSale } from "./returns.service.js";
 import { getSale, listSales, saleReceipt, saleRefunds } from "./sales.service.js";
 
 export const salesRoutes: Route[] = [
-  { method: "post", path: "/checkout", auth: "member", run: (c) => checkout(c.db, c.actor, c.body) },
+  // Checkout emits its own notice only when a new sale is committed, never on idempotent replays.
+  { method: "post", path: "/checkout", auth: "member", change: false, run: (c) => checkout(c.db, c.actor, c.body) },
   { method: "get", path: "/sales", auth: "member", run: (c) => listSales(c.db, c.actor, branchQuery(c)) },
   { method: "get", path: "/sales/:id", auth: "member", run: (c) => getSale(c.db, c.actor, c.params.id) },
   { method: "get", path: "/sales/:id/receipt", auth: "member", run: (c) => saleReceipt(c.db, c.actor, c.params.id) },

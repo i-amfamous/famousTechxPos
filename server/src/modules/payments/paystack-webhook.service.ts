@@ -6,6 +6,7 @@ import { one, type Db } from "../../core/db.js";
 import { bad } from "../../core/errors.js";
 import { n } from "../../core/values.js";
 import { verifyPaystackSignature } from "./paystack.service.js";
+import { emitChange } from "../../realtime/changes.js";
 
 export interface PaystackWebhookInput {
   db: Db;
@@ -36,5 +37,7 @@ export async function handlePaystackWebhook(input: PaystackWebhookInput) {
       ["Paystack payment confirmed on the customer's phone.", request.id]);
     await tx.run("UPDATE payments SET status = 'paid' WHERE id = ? AND organization_id = ?", [request.payment_id, request.organization_id]);
   });
+  const sale = await one(input.db, "SELECT branch_id FROM sales WHERE id = ? AND organization_id = ?", [request.sale_id, request.organization_id]);
+  emitChange({ orgId: request.organization_id, branchId: sale?.branch_id ?? null, type: "payments" });
   return { ok: true, paid: true, saleId: request.sale_id };
 }

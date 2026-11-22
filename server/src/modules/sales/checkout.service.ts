@@ -16,6 +16,7 @@ import { PAYMENT_METHODS, saleReceipt } from "./sales.service.js";
 import { myOpenShift } from "../shifts/shifts.service.js";
 import { detectNetwork, normalizePhone, requestMomoPayment, type MomoNetwork } from "../payments/momo.service.js";
 import { verifyPaystackTransaction } from "../payments/paystack.service.js";
+import { emitChange } from "../../realtime/changes.js";
 
 /** Marks a MoMo tender paid through the Paystack Inline dialog. Parsed again when the sale is saved. */
 const PAYSTACK_REF = "Paystack ";
@@ -144,6 +145,8 @@ export async function checkout(db: Db, actor: Actor, p: CheckoutInput) {
   try {
     const saleId = await db.tx((tx) => checkoutTx(tx, actor, input, key));
     await dispatchMomo(db, actor.orgId, saleId, input.payments);
+    const created = await one(db, "SELECT branch_id FROM sales WHERE id = ?", [saleId]);
+    emitChange({ orgId: actor.orgId, branchId: created?.branch_id ?? null, type: "sales" });
     return saleReceipt(db, actor, saleId);
   } catch (e) {
     if (isDuplicateKey(e)) {

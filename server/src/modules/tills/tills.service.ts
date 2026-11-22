@@ -9,6 +9,7 @@ import { memberCan, memberHasBranch, requirePerm, type Actor } from "../../auth/
 import { randomToken, sha256, verifySecret } from "../../auth/crypto.js";
 import { createSession, revokeSession } from "../../auth/sessions.js";
 import { checkPin, setPin } from "./pins.service.js";
+import { emitChange } from "../../realtime/changes.js";
 
 export async function terminalByToken(db: Db, token: string | undefined): Promise<Row | null> {
   if (!token) return null;
@@ -88,6 +89,7 @@ async function startTillSession(db: Db, t: Row, m: Row) {
   await db.run("UPDATE sessions SET revoked_at = ? WHERE terminal_id = ? AND revoked_at IS NULL", [nowSql(), t.id]); // one person per till
   await db.run("UPDATE business_members SET last_sign_in_at = ? WHERE id = ?", [nowSql(), m.id]);
   await db.run("UPDATE pos_terminals SET last_seen_at = ? WHERE id = ?", [nowSql(), t.id]);
+  emitChange({ orgId: t.organization_id, branchId: t.branch_id, type: "session" });
   return createSession(db, { userId: m.user_id, memberId: m.id, orgId: m.organization_id, method: "pin", terminalId: t.id });
 }
 

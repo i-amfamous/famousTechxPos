@@ -5,6 +5,7 @@ import { config } from "./config.js";
 import { createMysqlDb } from "./core/db.js";
 import { mailConfigured, mailDiagnostics } from "./core/mail.js";
 import { attachScanRelay } from "./realtime/scan-relay.js";
+import { attachChangeRelay } from "./realtime/change-relay.js";
 
 async function main() {
   if (!config.databaseUrl) {
@@ -18,6 +19,7 @@ async function main() {
   const db = await createMysqlDb(config.databaseUrl, config.databaseSsl);
   const server = createServer(createApp(db));
   const relay = attachScanRelay(server);
+  const changes = attachChangeRelay(server, db);
   server.listen(config.port, () => {
     console.log(`Famous TechX POS API listening on :${config.port}`);
     console.log(`  web app: ${config.appUrl}   email: ${mailConfigured() ? `${mailDiagnostics().transport} ready` : "not configured (invite links are shown in the app)"}`);
@@ -27,6 +29,7 @@ async function main() {
     if (stopping) return;
     stopping = true;
     relay.close(); // end scanner sessions before the process exits
+    changes.close();
     server.close(() => { void db.close().finally(() => process.exit(0)); });
     setTimeout(() => {
       console.error("Shutdown timed out with connections still open.");

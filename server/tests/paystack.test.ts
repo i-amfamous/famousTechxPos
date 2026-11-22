@@ -15,6 +15,7 @@ const { requestMomoPayment, detectNetwork } = await import("../src/modules/payme
 const { checkout } = await import("../src/modules/sales/checkout.service.js");
 const { ALL_PERMS } = await import("../src/auth/permission-catalogue.js");
 const { createSqliteDb } = await import("./sqlite.js");
+const { onChange } = await import("../src/realtime/changes.js");
 
 const sign = (raw: Buffer) => createHmac("sha512", SECRET).update(raw).digest("hex");
 
@@ -109,6 +110,8 @@ describe("Paystack mobile money", () => {
       /Invalid Paystack signature/,
     );
 
+    const changes: string[] = [];
+    const off = onChange((e) => { if (e.orgId === "org-1") changes.push(e.type); });
     const first = await handlePaystackWebhook({ db, body, rawBody: raw, signature: sign(raw) });
     assert.equal(first.paid, true);
     const payment = await db.all("SELECT status FROM payments WHERE id = 'pay-1'");
@@ -116,6 +119,8 @@ describe("Paystack mobile money", () => {
 
     const replay = await handlePaystackWebhook({ db, body, rawBody: raw, signature: sign(raw) });
     assert.equal(replay.ignored, true);
+    assert.deepEqual(changes, ["payments"], "only the actual payment update broadcasts");
+    off();
     await db.close();
   });
 
@@ -142,11 +147,17 @@ describe("Paystack mobile money", () => {
       calls.push(String(url));
       return new Response(JSON.stringify({ data: { status: "success", amount: 1250 } }), { status: 200, headers: { "Content-Type": "application/json" } });
     };
+    const changes: string[] = [];
+    const off = onChange((e) => { if (e.orgId === "org-1") changes.push(e.type); });
     try {
       const receipt = await checkout(db, actor, inlineCheckout("FTX-inline"));
       assert.equal(calls.length, 1);
       assert.match(calls[0] ?? "", /\/transaction\/verify\/FTX-inline$/);
       assert.equal(receipt.payments[0]?.status, "paid");
+      assert.deepEqual(changes, ["sales"]);
+
+      await checkout(db, actor, inlineCheckout("FTX-inline"));
+      assert.deepEqual(changes, ["sales"], "an idempotent checkout replay does not broadcast");
 
       const pays = await db.all("SELECT status, provider_reference FROM payments WHERE sale_id = ?", [receipt.saleId]);
       assert.equal(pays[0]?.status, "paid");
@@ -155,16 +166,19 @@ describe("Paystack mobile money", () => {
       assert.equal(requests.length, 1);
       assert.equal(requests[0]?.status, "paid");
       assert.equal(requests[0]?.provider_reference, "FTX-inline");
-    } finally { globalThis.fetch = original; await db.close(); }
+    } finally { globalThis.fetch = original; off(); await db.close(); }
   });
 
   it("refuses to save a sale when Paystack hasn't confirmed the Inline payment", async () => {
     const { db, actor } = await saleFixture();
     const original = globalThis.fetch;
     globalThis.fetch = async () => new Response(JSON.stringify({ data: { status: "pending", amount: 1250 } }), { status: 200, headers: { "Content-Type": "application/json" } });
+    const changes: string[] = [];
+    const off = onChange((e) => { if (e.orgId === "org-1") changes.push(e.type); });
     try {
       await assert.rejects(() => checkout(db, actor, inlineCheckout("FTX-pending")), (e: { code?: string }) => e.code === "paystack_not_paid");
       assert.equal((await db.all("SELECT id FROM sales")).length, 0);
-    } finally { globalThis.fetch = original; await db.close(); }
+      assert.deepEqual(changes, []);
+    } finally { globalThis.fetch = original; off(); await db.close(); }
   });
 });

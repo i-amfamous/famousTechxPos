@@ -9,6 +9,7 @@ export const paystackRoutes: Route[] = [
     method: "post",
     path: "/webhooks/paystack",
     auth: "public",
+    change: false,
     run: (c) => handlePaystackWebhook({
       db: c.db,
       body: c.body,
@@ -21,6 +22,7 @@ export const paystackRoutes: Route[] = [
     path: "/paystack/initialize",
     auth: "member",
     limit: 20,
+    change: false,
     run: (c) => {
       requirePerm(c.actor, "pos.sell");
       return initializePaystackInline({ amount: Number(c.body?.amount), email: c.body?.email, phone: c.body?.phone });

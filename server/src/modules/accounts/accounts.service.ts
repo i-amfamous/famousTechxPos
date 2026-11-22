@@ -10,6 +10,7 @@ import { issueLinkToken } from "../../auth/link-tokens.js";
 import { createSession, loadActor, revokeUserSessions, type SessionInfo } from "../../auth/sessions.js";
 import { mapMember } from "../people/employees.service.js";
 import { mapRole } from "../people/roles.service.js";
+import { emitChange } from "../../realtime/changes.js";
 
 export function validatePassword(pw: unknown) {
   if (typeof pw !== "string" || pw.length < 8) throw bad("weak_password", "Use at least 8 characters for the password.");
@@ -116,6 +117,7 @@ export async function redeemLinkToken(db: Db, i: { token: string; password: stri
     await revokeUserSessions(tx, userId);
   });
   const m = await one(db, "SELECT * FROM business_members WHERE user_id = ? AND status = 'active' ORDER BY is_owner DESC LIMIT 1", [userId]);
+  if (m?.organization_id) emitChange({ orgId: m.organization_id, type: "session" });
   return createSession(db, { userId, memberId: m?.id, orgId: m?.organization_id, method: "password" });
 }
 

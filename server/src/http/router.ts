@@ -11,6 +11,7 @@ import { assertSessionDevice, loadActor, readSession, type SessionInfo } from ".
 import type { Actor } from "../auth/access.js";
 import type { Db } from "../core/db.js";
 import { AppError, forbidden } from "../core/errors.js";
+import { emitChange } from "../realtime/changes.js";
 
 export interface RequestContext {
   db: Db;
@@ -33,7 +34,14 @@ export interface SessionContext extends RequestContext { session: SessionInfo }
 export interface MemberContext extends SessionContext { actor: Actor }
 
 type Method = "get" | "post" | "put" | "patch" | "delete";
-interface RouteBase { method: Method; path: string; /** Max requests per client per minute. */ limit?: number }
+interface RouteBase {
+  method: Method;
+  path: string;
+  /** Max requests per client per minute. */
+  limit?: number;
+  /** Change category to broadcast after a successful write. `false` means the route emits nothing. */
+  change?: string | false;
+}
 export type Route =
   | (RouteBase & { auth: "public"; run: (c: RequestContext) => Promise<unknown> })
   | (RouteBase & { auth: "session"; run: (c: SessionContext) => Promise<unknown> })
@@ -92,18 +100,54 @@ function rateLimit(key: string, max: number) {
   if (++entry.count > max) throw new AppError(429, "rate_limited", "Too many attempts. Wait a minute and try again.");
 }
 
+/* ───────── Change notices ───────── */
+/** Maps a route to a broad data category. The client uses it only to decide what to refetch. */
+export function changeTypeForPath(path: string): string {
+  const first = path.replace(/^\//, "").split("/")[0] ?? "";
+  const map: Record<string, string> = {
+    business: "business", branches: "branches", settings: "settings", terminals: "terminals",
+    approvals: "approvals", shifts: "shifts", "cash-movements": "shifts",
+    checkout: "sales", sales: "sales", "held-carts": "sales",
+    customers: "customers", employees: "employees", roles: "roles", approvers: "employees",
+    categories: "products", products: "products", barcode: "products",
+    stock: "inventory", transfers: "inventory",
+    expenses: "expenses", suppliers: "purchasing", "purchase-orders": "purchasing",
+    notifications: "notifications", reports: "reports", auth: "session", me: "employees",
+  };
+  if (first === "me" && path.includes("/password")) return "session";
+  return map[first] ?? "general";
+}
+
 /* ───────── Dispatch ───────── */
 export async function dispatch(route: Route, request: RequestContext, clientId: string): Promise<unknown> {
   if (route.limit) rateLimit(`${clientId}|${route.method}|${route.path}`, route.limit);
   const c: RequestContext = { ...request, body: request.body && typeof request.body === "object" ? request.body : {} };
+  let session: SessionInfo | undefined;
+  let actor: Actor | undefined;
+  let out: unknown;
 
-  if (route.auth === "public") return (await route.run(c)) ?? ok;
+  if (route.auth === "public") {
+    out = await route.run(c);
+  } else {
+    session = await readSession(c.db, c.token);
+    await assertSessionDevice(c.db, session, c.terminalToken);
+    if (route.auth === "member") {
+      const loaded = await loadActor(c.db, session);
+      if (!loaded) throw forbidden("no_business", "Create or join a business first.");
+      actor = loaded;
+      out = await route.run({ ...c, session, actor });
+    } else {
+      out = await route.run({ ...c, session });
+    }
+  }
 
-  const session = await readSession(c.db, c.token);
-  await assertSessionDevice(c.db, session, c.terminalToken);
-  if (route.auth === "session") return (await route.run({ ...c, session })) ?? ok;
-
-  const actor = await loadActor(c.db, session);
-  if (!actor) throw forbidden("no_business", "Create or join a business first.");
-  return (await route.run({ ...c, session, actor })) ?? ok;
+  // Only successful writes broadcast. Services that are idempotent set `change: false`
+  // and publish their own notice when a row really changed.
+  if (route.method !== "get" && route.change !== false) {
+    const returnedOrg = out && typeof out === "object" ? (out as { organizationId?: unknown }).organizationId : undefined;
+    const orgId = actor?.orgId ?? session?.orgId ?? (typeof returnedOrg === "string" ? returnedOrg : undefined);
+    const type = route.change ?? changeTypeForPath(route.path);
+    if (orgId && type) emitChange({ orgId, type, at: Date.now() });
+  }
+  return out ?? ok;
 }

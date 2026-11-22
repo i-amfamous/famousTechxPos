@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { LuKeyRound } from "react-icons/lu";
 import { SessionProvider, useSession } from "@/app/session";
+import { LiveUpdatesProvider } from "@/app/live-updates";
 import { Button, ToastProvider } from "@/components/ui";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AuthLoader } from "@/features/auth/AuthChrome";
@@ -87,57 +88,59 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider>
         <SessionProvider>
-          <ScannerProvider>
-            <Routes>
-              {/* Public / auth */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/accept-invite" element={<AcceptInvitePage />} />
-              <Route path="/onboarding" element={<OnboardingPage />} />
-              <Route path="/scan/:session" element={<PhoneScanPage />} />
+          <LiveUpdatesProvider>
+            <ScannerProvider>
+              <Routes>
+                {/* Public / auth */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/accept-invite" element={<AcceptInvitePage />} />
+                <Route path="/onboarding" element={<OnboardingPage />} />
+                <Route path="/scan/:session" element={<PhoneScanPage />} />
 
-              {/* POS till (full screen; PIN sessions) */}
-              <Route path="/pos/lock" element={<LockScreen />} />
-              <Route element={<RequireTillUser />}>
-                <Route path="/pos/open-shift" element={<OpenShiftPage />} />
-                <Route path="/pos/close-shift" element={<CloseShiftPage />} />
-                <Route path="/pos" element={<PosPage />} />
-              </Route>
-
-              {/* Back office */}
-              <Route element={<RequireBackOffice />}>
-                <Route element={<AppLayout />}>
-                  <Route index element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/sales" element={<Perm p={["sales.view_all", "sales.view_own"]}><SalesPage /></Perm>} />
-                  <Route path="/sales/:id" element={<Perm p={["sales.view_all", "sales.view_own"]}><SaleDetailPage /></Perm>} />
-                  <Route path="/customers" element={<Perm p="customers.manage"><CustomersPage /></Perm>} />
-                  <Route path="/customers/:id" element={<Perm p="customers.manage"><CustomerDetailPage /></Perm>} />
-                  <Route path="/products" element={<Perm p="products.view"><ProductsPage /></Perm>} />
-                  <Route path="/inventory" element={<Perm p={["inventory.adjust", "inventory.transfer"]}><InventoryPage /></Perm>} />
-                  <Route path="/suppliers" element={<Perm p="purchases.manage"><SuppliersPage /></Perm>} />
-                  <Route path="/purchases" element={<Perm p="purchases.manage"><PurchasesPage /></Perm>} />
-                  <Route path="/purchases/:id" element={<Perm p="purchases.manage"><PurchaseDetailPage /></Perm>} />
-                  <Route path="/employees" element={<Perm p="employees.view"><EmployeesPage /></Perm>} />
-                  <Route path="/employees/:id" element={<Perm p="employees.view"><EmployeeDetailPage /></Perm>} />
-                  <Route path="/roles" element={<Perm p="roles.manage"><RolesPage /></Perm>} />
-                  <Route path="/shifts" element={<Perm p="shift.view_all"><ShiftsPage /></Perm>} />
-                  <Route path="/activity" element={<Perm p="activity.view"><ActivityPage /></Perm>} />
-                  <Route path="/expenses" element={<Perm p="expenses.manage"><ExpensesPage /></Perm>} />
-                  <Route path="/reports" element={<Perm p="reports.view"><ReportsPage /></Perm>} />
-                  <Route path="/branches" element={<Perm p="branches.manage"><BranchesPage /></Perm>} />
-                  <Route path="/notifications" element={<NotificationsPage />} />
-                  <Route path="/settings" element={<Perm p="settings.manage"><SettingsPage /></Perm>} />
-                  <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/platform" element={<DemoOnly><PlatformAdminPage /></DemoOnly>} />
-                  <Route path="/unauthorized" element={<UnauthorizedPage />} />
+                {/* POS till (full screen; PIN sessions) */}
+                <Route path="/pos/lock" element={<LockScreen />} />
+                <Route element={<RequireTillUser />}>
+                  <Route path="/pos/open-shift" element={<OpenShiftPage />} />
+                  <Route path="/pos/close-shift" element={<CloseShiftPage />} />
+                  <Route path="/pos" element={<PosPage />} />
                 </Route>
-              </Route>
 
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-            <ScannerWindows />
-          </ScannerProvider>
+                {/* Back office */}
+                <Route element={<RequireBackOffice />}>
+                  <Route element={<AppLayout />}>
+                    <Route index element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/sales" element={<Perm p={["sales.view_all", "sales.view_own"]}><SalesPage /></Perm>} />
+                    <Route path="/sales/:id" element={<Perm p={["sales.view_all", "sales.view_own"]}><SaleDetailPage /></Perm>} />
+                    <Route path="/customers" element={<Perm p="customers.manage"><CustomersPage /></Perm>} />
+                    <Route path="/customers/:id" element={<Perm p="customers.manage"><CustomerDetailPage /></Perm>} />
+                    <Route path="/products" element={<Perm p="products.view"><ProductsPage /></Perm>} />
+                    <Route path="/inventory" element={<Perm p={["inventory.adjust", "inventory.transfer"]}><InventoryPage /></Perm>} />
+                    <Route path="/suppliers" element={<Perm p="purchases.manage"><SuppliersPage /></Perm>} />
+                    <Route path="/purchases" element={<Perm p="purchases.manage"><PurchasesPage /></Perm>} />
+                    <Route path="/purchases/:id" element={<Perm p="purchases.manage"><PurchaseDetailPage /></Perm>} />
+                    <Route path="/employees" element={<Perm p="employees.view"><EmployeesPage /></Perm>} />
+                    <Route path="/employees/:id" element={<Perm p="employees.view"><EmployeeDetailPage /></Perm>} />
+                    <Route path="/roles" element={<Perm p="roles.manage"><RolesPage /></Perm>} />
+                    <Route path="/shifts" element={<Perm p="shift.view_all"><ShiftsPage /></Perm>} />
+                    <Route path="/activity" element={<Perm p="activity.view"><ActivityPage /></Perm>} />
+                    <Route path="/expenses" element={<Perm p="expenses.manage"><ExpensesPage /></Perm>} />
+                    <Route path="/reports" element={<Perm p="reports.view"><ReportsPage /></Perm>} />
+                    <Route path="/branches" element={<Perm p="branches.manage"><BranchesPage /></Perm>} />
+                    <Route path="/notifications" element={<NotificationsPage />} />
+                    <Route path="/settings" element={<Perm p="settings.manage"><SettingsPage /></Perm>} />
+                    <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/platform" element={<DemoOnly><PlatformAdminPage /></DemoOnly>} />
+                    <Route path="/unauthorized" element={<UnauthorizedPage />} />
+                  </Route>
+                </Route>
+
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+              <ScannerWindows />
+            </ScannerProvider>
+          </LiveUpdatesProvider>
         </SessionProvider>
       </ToastProvider>
     </BrowserRouter>
