@@ -1,32 +1,40 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useSession } from "@/app/session";
-import { LuArrowLeft, LuCheck, LuEye, LuEyeOff, LuMail, LuMonitorSmartphone } from "react-icons/lu";
+import { LuArrowLeft, LuArrowRight, LuCheck, LuCircleAlert, LuEye, LuEyeOff, LuMail, LuMonitorSmartphone, LuShieldCheck } from "react-icons/lu";
 import { actions } from "@/services/api";
 import { Button, Callout, Card, Checkbox, Input, Select } from "@/components/ui";
-import { Logo } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/format";
+import { AuthBackdrop, AuthBrandHeader, AuthCard, AuthLoader, AuthStepper, SecurityBadge, TillShortcut } from "./AuthChrome";
 
-function AuthShell({ children, wide }: { children: ReactNode; wide?: boolean }) {
+function AuthShell({ children, wide, card = true }: { children: ReactNode; wide?: boolean; card?: boolean }) {
   return (
-    <div className="flex min-h-full">
-      <div className="relative hidden w-[44%] flex-col justify-between overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-violet-800 p-12 text-white lg:flex">
-        <div className="flex items-center gap-3"><Logo className="size-11 text-base ring-2 ring-white/30" /><span className="text-lg font-bold tracking-wide">FAMOUS TECHX</span></div>
-        <div>
-          <h2 className="text-4xl font-semibold leading-tight">Sell faster.<br />Know every cedi.<br />Trust your team.</h2>
-          <p className="mt-4 max-w-sm text-brand-100">Sales, stock, staff and shifts for every branch — in one place.</p>
+    <AuthBackdrop>
+      <div className="relative hidden w-[42%] shrink-0 flex-col justify-between border-r border-white/10 px-11 py-11 lg:flex xl:px-14 xl:py-12">
+        <AuthBrandHeader />
+        <div className="auth-panel-in my-8">
+          <SecurityBadge dark />
+          <h2 className="mt-6 text-4xl font-semibold leading-[1.12] tracking-tight xl:text-5xl">
+            Sell faster.<br />Know every cedi.<br /><span className="text-brand-200">Trust your team.</span>
+          </h2>
+          <p className="mt-5 max-w-sm text-base leading-relaxed text-brand-100">Sales, stock, staff and shifts for every branch — in one place.</p>
+          <div className="mt-8 flex items-center gap-3 rounded-2xl bg-white/10 p-3.5 ring-1 ring-white/10 backdrop-blur-sm">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-white/15"><LuShieldCheck className="size-5" /></span>
+            <p className="text-xs leading-relaxed text-brand-100"><span className="font-semibold text-white">Built for busy counters.</span><br />Fast checkout, clear shift handovers and a full audit trail.</p>
+          </div>
         </div>
-        <p className="text-sm text-brand-200">© Famous TechX</p>
-        <div className="pointer-events-none absolute -right-24 -top-24 size-96 rounded-full bg-white/10" />
-        <div className="pointer-events-none absolute -bottom-32 right-10 size-72 rounded-full bg-violet-400/20" />
-      </div>
-      <div className="flex flex-1 items-center justify-center p-6">
-        <div className={cn("w-full", wide ? "max-w-2xl" : "max-w-sm")}>
-          <div className="mb-8 flex items-center gap-3 lg:hidden"><Logo /><span className="font-bold tracking-wide text-ink-900">FAMOUS TECHX</span></div>
-          {children}
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-brand-200">© {new Date().getFullYear()} Famous TechX</p>
+          <TillShortcut />
         </div>
       </div>
-    </div>
+      <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8 lg:px-10">
+        <div className={cn("w-full auth-panel-in", wide ? "max-w-3xl" : "max-w-md")}>
+          <div className="mb-6 lg:hidden"><AuthBrandHeader compact /></div>
+          {card ? <AuthCard>{children}</AuthCard> : children}
+        </div>
+      </div>
+    </AuthBackdrop>
   );
 }
 
@@ -69,22 +77,26 @@ export function LoginPage() {
   };
   return (
     <AuthShell>
-      <h1 className="text-2xl font-semibold text-ink-900">Sign in</h1>
-      <p className="mt-1 text-sm text-ink-500">Back office for owners, managers and staff.</p>
-      <form className="mt-8 space-y-4" onSubmit={submit}>
-        {error && <Callout tone="danger">{error}</Callout>}
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-600">Back office</p>
+      <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink-900">Welcome back</h1>
+      <p className="mt-1.5 text-sm text-ink-500">Sign in to manage sales, stock, staff and shifts.</p>
+      <form className="mt-7 space-y-4" onSubmit={submit}>
+        {error && <Callout tone="danger" icon={<LuCircleAlert className="size-4" />}>{error}</Callout>}
         <Input label="Email or phone" hint="Staff without email use their phone number" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" autoFocus />
         <PasswordInput label="Password" value={password} onChange={setPassword} autoComplete="current-password" />
         <div className="flex items-center justify-between">
           <Checkbox label="Keep me signed in" defaultChecked />
           <Link to="/forgot-password" className="text-sm font-medium text-brand-700 hover:underline">Forgot password?</Link>
         </div>
-        <Button type="submit" size="lg" block loading={busy}>Sign in</Button>
+        <Button type="submit" size="lg" block loading={busy} iconRight={!busy ? <LuArrowRight className="size-4" /> : undefined}>Sign in</Button>
       </form>
-      <div className="mt-8 rounded-xl bg-ink-100 p-4 text-sm">
-        <p className="flex items-center gap-2 font-medium text-ink-800"><LuMonitorSmartphone className="size-4" /> Working on a till?</p>
-        <p className="mt-1 text-ink-600">Cashiers sign in on a registered till with their PIN.</p>
-        <Link to="/pos/lock" className="mt-2 inline-block font-medium text-brand-700 hover:underline">Go to POS lock screen →</Link>
+      <div className="mt-7 flex gap-3 rounded-2xl bg-gradient-to-br from-brand-50 to-violet-50 p-4 ring-1 ring-brand-100">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white text-brand-700 shadow-sm"><LuMonitorSmartphone className="size-4" /></span>
+        <div className="text-sm">
+          <p className="font-semibold text-ink-800">Working on a till?</p>
+          <p className="mt-0.5 text-ink-600">Cashiers use their own PIN on a registered till.</p>
+          <Link to="/pos/lock" className="mt-1.5 inline-flex items-center gap-1 font-semibold text-brand-700 hover:underline">Go to POS lock screen <LuArrowRight className="size-3.5" /></Link>
+        </div>
       </div>
       <p className="mt-6 text-center text-sm text-ink-500">New business? <Link to="/onboarding" className="font-medium text-brand-700 hover:underline">Set up Famous TechX</Link></p>
     </AuthShell>
@@ -100,20 +112,27 @@ export function ForgotPasswordPage() {
     <AuthShell>
       <Link to="/login" className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-900"><LuArrowLeft className="size-4" /> Back to sign in</Link>
       {sent ? (
-        <>
-          <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-brand-50 text-brand-700"><LuMail className="size-6" /></div>
-          <h1 className="text-2xl font-semibold text-ink-900">Check your email</h1>
-          <p className="mt-2 text-sm text-ink-600">If an account exists for <span className="font-medium">{email}</span>, we've sent a link to reset your password.</p>
-          <p className="mt-6 text-sm text-ink-500">No email? Staff without email should ask their manager to reset their password.</p>
-        </>
+        <div className="auth-panel-in py-2 text-center">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+            <LuMail className="size-7" />
+          </div>
+          <h1 className="mt-5 text-2xl font-semibold tracking-tight text-ink-900">Check your email</h1>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-600">
+            If an account exists for <span className="font-semibold text-ink-900">{email}</span>, we've sent a branded reset link from <span className="font-medium">Famous TechX POS</span>.
+          </p>
+          <p className="mx-auto mt-5 max-w-sm text-xs text-ink-500">No email? Staff without email should ask their manager to reset their password from Employees.</p>
+          <Link to="/login" className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline">Back to sign in <LuArrowRight className="size-3.5" /></Link>
+        </div>
       ) : (
         <>
-          <h1 className="text-2xl font-semibold text-ink-900">Reset your password</h1>
-          <p className="mt-1 text-sm text-ink-500">We'll email you a reset link.</p>
-          <form className="mt-8 space-y-4" onSubmit={async (e) => { e.preventDefault(); setBusy(true); try { await actions.requestPasswordReset(email); setSent(true); } catch { setSent(true); } finally { setBusy(false); } }}>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-600">Account recovery</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink-900">Reset your password</h1>
+          <p className="mt-1.5 text-sm text-ink-500">We'll send a secure link to your email.</p>
+          <form className="mt-7 space-y-4" onSubmit={async (e) => { e.preventDefault(); setBusy(true); try { await actions.requestPasswordReset(email); setSent(true); } catch { setSent(true); } finally { setBusy(false); } }}>
             <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
-            <Button type="submit" size="lg" block loading={busy}>Send reset link</Button>
+            <Button type="submit" size="lg" block loading={busy} iconRight={!busy ? <LuArrowRight className="size-4" /> : undefined}>Send reset link</Button>
           </form>
+          <p className="mt-5 text-center text-xs text-ink-400">The link arrives from Famous TechX POS and expires in 1 hour.</p>
         </>
       )}
     </AuthShell>
@@ -137,6 +156,7 @@ export function AcceptInvitePage() {
     { ok: /\d/.test(pw), label: "At least one number" },
   ];
   const strong = checks.every((c) => c.ok);
+  if (!demo && !ready) return <AuthLoader label="Checking your invitation…" note="Famous TechX POS" />;
   // Without a link token the page is only for someone signed in with a temporary password.
   if (!demo && ready && !signedIn && !linkToken)
     return (
@@ -193,6 +213,7 @@ export function OnboardingPage() {
 
   useEffect(() => { if (!demo && ready && signedIn && step === 0) setStep(1); }, [demo, ready, signedIn, step]);
   useEffect(() => { if (!demo && ready && signedIn && !needsOnboarding) navigate("/dashboard", { replace: true }); }, [demo, ready, signedIn, needsOnboarding, navigate]);
+  if (!demo && !ready) return <AuthLoader label="Preparing your setup…" note="Famous TechX POS" />;
 
   const createAccount = async () => {
     setBusy(true); setError(null);
@@ -221,17 +242,7 @@ export function OnboardingPage() {
 
   return (
     <AuthShell wide>
-      <ol className="mb-8 flex items-center gap-2">
-        {steps.map((s, i) => (
-          <li key={s} className="flex flex-1 items-center gap-2">
-            <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold", i < step ? "bg-emerald-600 text-white" : i === step ? "bg-brand-600 text-white" : "bg-ink-200 text-ink-500")}>
-              {i < step ? <LuCheck className="size-4" /> : i + 1}
-            </span>
-            <span className={cn("hidden text-sm sm:block", i === step ? "font-medium text-ink-900" : "text-ink-500")}>{s}</span>
-            {i < steps.length - 1 && <span className="h-px flex-1 bg-ink-200" />}
-          </li>
-        ))}
-      </ol>
+      <AuthStepper steps={steps} active={step} className="mb-8" />
       <Card className="p-6 sm:p-8">
         {error && <div className="mb-4"><Callout tone="danger">{error}</Callout></div>}
         {step === 0 && (

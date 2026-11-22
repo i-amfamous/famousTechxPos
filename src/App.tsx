@@ -2,8 +2,9 @@ import type { ReactNode } from "react";
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { LuKeyRound } from "react-icons/lu";
 import { SessionProvider, useSession } from "@/app/session";
-import { Button, Spinner, ToastProvider } from "@/components/ui";
-import { AppLayout, Logo } from "@/components/layout/AppLayout";
+import { Button, ToastProvider } from "@/components/ui";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { AuthLoader } from "@/features/auth/AuthChrome";
 import { ScannerProvider } from "@/features/scanner/ScannerProvider";
 import { ScannerWindows } from "@/features/scanner/ScanControls";
 import { PhoneScanPage } from "@/features/scanner/PhoneScanPage";
@@ -29,13 +30,8 @@ import { NotificationsPage } from "@/features/notifications/NotificationsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { NotFoundPage, PlatformAdminPage, ProfilePage, UnauthorizedPage } from "@/features/misc/MiscPages";
 
-function FullScreenLoader() {
-  return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-4 text-ink-500">
-      <Logo className="size-12 text-lg" />
-      <Spinner className="size-6 text-brand-600" />
-    </div>
-  );
+function FullScreenLoader({ label = "Preparing your workspace…" }: { label?: string }) {
+  return <AuthLoader label={label} />;
 }
 
 /** Back office needs a password session with an active membership. */
@@ -68,7 +64,7 @@ function RequireBackOffice() {
 /** Till screens need someone unlocked on this till. Waits for the session and shift lookup before deciding. */
 function RequireTillUser() {
   const s = useSession();
-  if (!s.ready || s.rosterLoading || (s.posUser && !s.shiftChecked)) return <FullScreenLoader />;
+  if (!s.ready || s.rosterLoading || (s.posUser && !s.shiftChecked)) return <FullScreenLoader label="Opening your till…" />;
   if (!s.posUser) return <Navigate to="/pos/lock" replace />;
   return <Outlet />;
 }

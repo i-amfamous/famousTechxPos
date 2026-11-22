@@ -8,6 +8,16 @@ import { bool, clean, n, nullIfEmpty, uuid } from "../../core/values.js";
 import { requireBranch, requirePerm, type Actor } from "../../auth/access.js";
 import { applyStock } from "../inventory/stock-ledger.js";
 
+/** Accepts normal URLs and compact data URLs from the browser's file/camera picker. */
+function cleanImageUrl(value?: string | null): string | null {
+  const url = nullIfEmpty(value);
+  if (!url) return null;
+  if (!/^(https?:\/\/|data:image\/(jpeg|png|webp|gif);base64,)/i.test(url))
+    throw bad("invalid_image", "Use a web address or an image file.");
+  if (url.length > 90_000) throw bad("image_too_large", "That photo is too large. Try a smaller image.");
+  return url;
+}
+
 export const mapProduct = (p: Row, stock: number, variants: Row[]) => ({
   id: p.id, name: p.name, sku: p.sku, barcode: p.barcode ?? undefined, categoryId: p.category_id ?? "", costPrice: n(p.cost_price),
   sellingPrice: n(p.selling_price), unit: p.unit, taxable: bool(p.taxable), status: p.status, stock, reorderLevel: n(p.reorder_level),
@@ -88,7 +98,7 @@ export async function createProduct(db: Db, actor: Actor, p: ProductInput) {
     try {
       await tx.run(`INSERT INTO products (id, organization_id, category_id, name, brand, description, image_url, sku, barcode, cost_price, selling_price, unit, taxable, reorder_level, status, created_at, updated_at)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        [id, actor.orgId, nullIfEmpty(p.categoryId), name, nullIfEmpty(p.brand), nullIfEmpty(p.description), nullIfEmpty(p.imageUrl), sku, barcode,
+        [id, actor.orgId, nullIfEmpty(p.categoryId), name, nullIfEmpty(p.brand), nullIfEmpty(p.description), cleanImageUrl(p.imageUrl), sku, barcode,
           money(cents(p.costPrice)), money(cents(p.sellingPrice)), clean(p.unit) || "pc", p.taxable !== false, n(p.reorderLevel), "active", nowSql(), nowSql()]);
     } catch (e) { dupError(e); }
     if (n(p.openingStock) > 0 && p.branchId)
@@ -122,7 +132,7 @@ export async function updateProduct(db: Db, actor: Actor, id: string, p: Partial
   if (p.barcode !== undefined) { await assertBarcodeFree(db, actor.orgId, nullIfEmpty(p.barcode), id); set("barcode", nullIfEmpty(p.barcode)); }
   if (p.brand !== undefined) set("brand", nullIfEmpty(p.brand));
   if (p.description !== undefined) set("description", nullIfEmpty(p.description));
-  if (p.imageUrl !== undefined) set("image_url", nullIfEmpty(p.imageUrl));
+  if (p.imageUrl !== undefined) set("image_url", cleanImageUrl(p.imageUrl));
   if (p.categoryId !== undefined) set("category_id", nullIfEmpty(p.categoryId));
   if (p.costPrice !== undefined) set("cost_price", money(cents(p.costPrice)));
   if (p.sellingPrice !== undefined) set("selling_price", money(cents(p.sellingPrice)));

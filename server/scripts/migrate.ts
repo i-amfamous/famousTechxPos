@@ -32,6 +32,11 @@ async function main() {
     await db.run("ALTER TABLE business_members ADD COLUMN deleted_at DATETIME(3) NULL");
     await db.run("ALTER TABLE business_members ADD COLUMN deleted_by CHAR(36) NULL");
   }
+  // Product photos can be compact data URLs from the file/camera picker, not just short URLs.
+  const imageCol = await one(db, "SELECT DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'image_url'");
+  const imageType = String((imageCol as { DATA_TYPE?: string } | null)?.DATA_TYPE ?? "").toLowerCase();
+  if (imageCol && !["text", "mediumtext", "longtext"].includes(imageType))
+    await db.run("ALTER TABLE products MODIFY COLUMN image_url TEXT NULL");
   // Index must be created after the columns exist (existing DBs get them via the ALTER above).
   await db.run("CREATE INDEX IF NOT EXISTS members_deleted ON business_members (organization_id, deleted_at)");
   await seedReferenceData(db);

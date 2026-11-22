@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   LuArchive, LuArchiveRestore, LuDownload, LuFileText, LuGlobe, LuPackage, LuPackageCheck, LuPlus, LuScanBarcode, LuSparkles, LuX,
 } from "react-icons/lu";
@@ -12,6 +13,7 @@ import { useScan } from "@/features/scanner/ScannerProvider";
 import { ScanButton } from "@/features/scanner/ScanControls";
 import { cn, formatMoney } from "@/lib/format";
 import { exportCsv as downloadCsv, exportPrintable, type ExportReport } from "@/lib/export";
+import { ProductImagePicker } from "./ProductImagePicker";
 import type { BarcodeLookup, Product } from "@/types";
 
 export function StockBadge({ p }: { p: Product }) {
@@ -39,12 +41,28 @@ export function ProductsPage() {
   const q = useProducts();
   const categories = useCategories().data;
   const { can, business } = useSession();
+  const [params, setParams] = useSearchParams();
+  const scanParam = params.get("barcode");
   const [tab, setTab] = useState<"active" | "archived">("active");
   const [search, setSearch] = useState("");
   const [cat, setCat] = useState("");
-  const [edit, setEdit] = useState<Product | "new" | null>(null);
-  const [scanned, setScanned] = useState<string | null>(null);
+  const [edit, setEdit] = useState<Product | "new" | null>(scanParam ? "new" : null);
+  const [scanned, setScanned] = useState<string | null>(scanParam);
   const rows = q.data.filter((p) => p.status === tab && (!cat || p.categoryId === cat) && (p.name + p.sku + (p.barcode ?? "")).toLowerCase().includes(search.toLowerCase()));
+
+  // A scan result card can send a code here to open a prefilled product form.
+  useEffect(() => {
+    if (scanParam) { setScanned(scanParam); setEdit("new"); }
+  }, [scanParam]);
+  const closeEditor = () => {
+    setEdit(null);
+    setScanned(null);
+    if (scanParam) {
+      const next = new URLSearchParams(params);
+      next.delete("barcode");
+      setParams(next, { replace: true });
+    }
+  };
 
   // Scanning on the list opens the product (or a new prefilled form).
   useScan((code) => {
@@ -108,7 +126,7 @@ export function ProductsPage() {
           {(data) => <DataTable columns={cols} rows={data} rowKey={(p) => p.id} onRowClick={setEdit} footer={<Pager total={data.length} />} />}
         </DataState>
       </Card>
-      <ProductDrawer product={edit} initialBarcode={scanned} onClose={() => { setEdit(null); setScanned(null); }} onOpenExisting={(p) => setEdit(p)} />
+      <ProductDrawer product={edit} initialBarcode={scanned} onClose={closeEditor} onOpenExisting={(p) => setEdit(p)} />
     </>
   );
 }
@@ -263,21 +281,12 @@ export function ProductDrawer({ product, initialBarcode, onClose, onOpenExisting
         )}
 
         <fieldset disabled={readOnly || !!existing} className="space-y-6">
-          <div className="flex gap-4">
-            <div className="shrink-0">
-              {f.imageUrl ? (
-                <div className="relative">
-                  <img src={f.imageUrl} alt="" className="size-24 rounded-xl bg-white object-contain ring-1 ring-ink-200" />
-                  <button type="button" aria-label="Remove photo" onClick={() => set("imageUrl", "")} className="absolute -right-2 -top-2 rounded-full bg-white p-1 text-ink-500 shadow ring-1 ring-ink-200 hover:text-rose-600"><LuX className="size-3.5" /></button>
-                </div>
-              ) : (
-                <span className="flex size-24 items-center justify-center rounded-xl bg-ink-100 text-ink-400"><LuPackage className="size-8" /></span>
-              )}
-            </div>
-            <div className="grid flex-1 gap-4 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-[auto_1fr]">
+            <ProductImagePicker value={f.imageUrl} onChange={(v) => set("imageUrl", v)} disabled={readOnly || !!existing} />
+            <div className="grid gap-4 sm:grid-cols-2">
               <Input label="Product name" required value={f.name} onChange={(e) => set("name", e.target.value)} error={errors.name} className="sm:col-span-2" autoFocus={!initialBarcode} />
               <Input label="Brand" value={f.brand} onChange={(e) => set("brand", e.target.value)} />
-              <Input label="Photo URL" value={f.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} placeholder="https://…" hint="Filled automatically when found online" />
+              <Input label="Photo URL (optional)" value={f.imageUrl.startsWith("data:") ? "" : f.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} placeholder="https://…" hint="Or use the photo buttons on the left" />
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

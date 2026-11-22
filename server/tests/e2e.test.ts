@@ -157,6 +157,14 @@ describe("catalogue & stock", () => {
     await err("permission_denied", "post", "/products", { token: S.cashier, body: { name: "X", sku: "Y", costPrice: 1, sellingPrice: 2 } });
   });
 
+  it("saves product photos from files and rejects unsafe image values", async () => {
+    const photo = `data:image/jpeg;base64,${"a".repeat(120)}`;
+    const created = await ok("post", "/products", { token: S.owner, body: { branchId: S.branch, name: "Photo item", sku: "PHOTO-1", costPrice: 1, sellingPrice: 2, imageUrl: photo } });
+    const list = await ok("get", `/products?branchId=${S.branch}`, { token: S.owner });
+    assert.equal(list.find((p: any) => p.id === created.id).imageUrl, photo);
+    await err("invalid_image", "post", "/products", { token: S.owner, body: { name: "Bad photo", sku: "PHOTO-2", costPrice: 1, sellingPrice: 2, imageUrl: "javascript:alert(1)" } });
+  });
+
   it("adjusts and receives stock; blocks removing below zero", async () => {
     await err("insufficient_stock", "post", "/stock/adjust", { token: S.owner, body: { branchId: S.branch, productId: S.p1, mode: "remove", quantity: 50, reason: "Count" } });
     assert.equal((await ok("post", "/stock/adjust", { token: S.owner, body: { branchId: S.branch, productId: S.p1, mode: "set", quantity: 6, reason: "Stock count" } })).quantity, 6);

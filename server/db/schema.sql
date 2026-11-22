@@ -210,7 +210,7 @@ CREATE TABLE IF NOT EXISTS products (
   name VARCHAR(200) NOT NULL,
   brand VARCHAR(120) NULL,
   description TEXT NULL,
-  image_url VARCHAR(1000) NULL,
+  image_url TEXT NULL,
   sku VARCHAR(64) NOT NULL,
   barcode VARCHAR(64) NULL,
   cost_price DECIMAL(14,2) NOT NULL DEFAULT 0,
