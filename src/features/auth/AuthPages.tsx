@@ -29,7 +29,7 @@ function AuthShell({ children, wide, card = true }: { children: ReactNode; wide?
         </div>
       </div>
       <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8 lg:px-10">
-        <div className={cn("w-full auth-panel-in", wide ? "max-w-3xl" : "max-w-md")}>
+        <div className={cn("my-auto w-full auth-panel-in", wide ? "max-w-3xl" : "max-w-md")}>
           <div className="mb-6 lg:hidden"><AuthBrandHeader compact /></div>
           {card ? <AuthCard>{children}</AuthCard> : children}
         </div>

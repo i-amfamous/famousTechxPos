@@ -124,7 +124,7 @@ export function LockScreen() {
   const activeStep = mode === "create" || mode === "confirm" ? 2 : 1;
 
   return (
-    <AuthBackdrop className="lock-scene">
+    <AuthBackdrop>
       {/* Brand + terminal identity */}
       <div className="relative hidden w-[38%] shrink-0 flex-col justify-between border-r border-white/10 px-9 py-9 lg:flex xl:px-14 xl:py-12">
         <AuthBrandHeader />
@@ -178,7 +178,7 @@ export function LockScreen() {
 
       {/* Employee picker / PIN */}
       <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8 lg:px-10">
-        <div className="w-full max-w-3xl auth-panel-in" key={selected ? `${selected.id}-${mode}` : "roster"}>
+        <div className="my-auto w-full max-w-3xl auth-panel-in" key={selected ? `${selected.id}-${mode}` : "roster"}>
           {!selected ? (
             <>
               <div className="mb-6">
@@ -323,9 +323,9 @@ export function LockScreen() {
 function NotATill() {
   const navigate = useNavigate();
   return (
-    <AuthBackdrop className="lock-scene">
+    <AuthBackdrop>
       <div className="flex flex-1 items-center justify-center p-5">
-        <AuthCard className="max-w-lg text-center">
+        <AuthCard className="my-auto max-w-lg text-center">
           <div className="hidden justify-center lg:flex"><AuthBrandHeader compact /></div>
           <span className="mx-auto mt-2 flex size-16 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-100"><LuMonitorSmartphone className="size-8" /></span>
           <h1 className="mt-5 text-2xl font-semibold tracking-tight text-ink-900">This device isn't a till yet</h1>

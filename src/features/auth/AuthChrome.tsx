@@ -11,11 +11,11 @@ import { cn } from "@/lib/format";
  */
 export function AuthBackdrop({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("auth-scene relative isolate min-h-full text-white", className)}>
+    <div className={cn("auth-scene relative isolate flex min-h-screen flex-col text-white min-h-dvh", className)}>
       <div className="auth-grid" aria-hidden="true" />
       <div className="auth-orb auth-orb-one" aria-hidden="true" />
       <div className="auth-orb auth-orb-two" aria-hidden="true" />
-      <div className="relative z-10 flex min-h-full">{children}</div>
+      <div className="relative z-10 flex flex-1">{children}</div>
     </div>
   );
 }
