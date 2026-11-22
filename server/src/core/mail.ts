@@ -1,14 +1,19 @@
-/** Outgoing email over Brevo's SMTP relay (configurable through SMTP_* env vars). */
+/**
+ * Outgoing email via Brevo. The REST API is preferred when BREVO_API_KEY is set (one credential,
+ * no relay port / IP allowlist issues); SMTP relay is kept as a fallback.
+ */
 import { config } from "../config.js";
 
-export const mailConfigured = () => !!(config.smtp.host && config.smtp.user && config.smtp.pass && config.smtp.from);
+const useBrevo = () => !!config.brevoApiKey;
+const from = () => config.smtp.from;
+export const mailConfigured = () => !!from() && (useBrevo() || !!(config.smtp.host && config.smtp.user && config.smtp.pass));
 
 /** Test hook: captures messages instead of sending. */
 export const outbox: { to: string; subject: string; text: string }[] = [];
 let captureOnly = false;
 export const captureMail = (on: boolean) => { captureOnly = on; };
 
-type Transport = { sendMail: (m: object) => Promise<unknown>; verify?: () => Promise<unknown>; close?: () => void };
+type Transport = { sendMail: (m: object) => Promise<unknown>; verify?: () => Promise<unknown> };
 let transport: Transport | null = null;
 
 async function getTransport(): Promise<Transport> {
@@ -31,21 +36,53 @@ async function getTransport(): Promise<Transport> {
   return transport;
 }
 
-/** Describes the current SMTP setup without printing secrets. */
+/** "Famous TechX <no-reply@example.com>" → sender object Brevo accepts. */
+function sender() {
+  const raw = from();
+  const m = /^(.*?)\s*<([^>]+)>$/.exec(raw);
+  return m ? { name: m[1]!.trim(), email: m[2]!.trim() } : { email: raw };
+}
+
+async function brevoFetch(path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; body: { message?: string; [k: string]: unknown } }> {
+  const r = await fetch(`https://api.brevo.com/v3${path}`, {
+    ...init,
+    headers: { "api-key": config.brevoApiKey, accept: "application/json", "content-type": "application/json", ...(init?.headers ?? {}) },
+    signal: AbortSignal.timeout(15_000),
+  });
+  const text = await r.text();
+  let body: { message?: string; [k: string]: unknown } = {};
+  try { body = JSON.parse(text); } catch { body = { message: text.slice(0, 200) }; }
+  return { ok: r.ok, status: r.status, body };
+}
+
+/** Describes the current mail setup without printing secrets. */
 export function mailDiagnostics() {
   return {
     configured: mailConfigured(),
+    transport: useBrevo() ? "brevo-api" : "smtp",
     host: config.smtp.host || "(not set)",
     port: config.smtp.port,
     user: config.smtp.user ? `${config.smtp.user.slice(0, 3)}…` : "(not set)",
-    from: config.smtp.from || "(not set)",
+    from: from() || "(not set)",
     keyLooksLikeSmtpKey: /^xsmtpsib-/.test(config.smtp.pass),
+    apiKeyLooksValid: /^xkeysib-/.test(config.brevoApiKey),
   };
 }
 
-/** Verifies credentials with the relay. Returns a readable reason when it fails. */
+/** Verifies credentials with Brevo. Returns a readable reason when it fails. */
 export async function verifyMail(): Promise<{ ok: boolean; message: string }> {
-  if (!mailConfigured()) return { ok: false, message: "SMTP_HOST, SMTP_USER, SMTP_PASS and MAIL_FROM must all be set." };
+  if (!mailConfigured()) return { ok: false, message: "MAIL_FROM and either BREVO_API_KEY or SMTP_HOST/SMTP_USER/SMTP_PASS must be set." };
+  if (useBrevo()) {
+    try {
+      const r = await brevoFetch("/account");
+      if (r.ok) return { ok: true, message: `Brevo API accepted the key (account ${r.body.email ?? "unknown"}).` };
+      const hint = /unrecognised IP|authorised_ips/i.test(r.body.message ?? "")
+        ? " Brevo's IP allowlist is blocking this machine — add it in Brevo → Security → Authorised IPs." : "";
+      return { ok: false, message: `Brevo API ${r.status}: ${r.body.message ?? "verification failed"}.${hint}` };
+    } catch (e) {
+      return { ok: false, message: `Brevo API error: ${(e as Error).message}` };
+    }
+  }
   try {
     const t = await getTransport();
     await t.verify?.();
@@ -59,20 +96,28 @@ export async function verifyMail(): Promise<{ ok: boolean; message: string }> {
   }
 }
 
-/** Sends a plain-text email. Returns false (and logs) when SMTP isn't set up or sending fails. */
+/** Sends a plain-text email. Returns false (and logs) when mail isn't set up or sending fails. */
 export async function sendMail(to: string, subject: string, text: string): Promise<boolean> {
   if (captureOnly) { outbox.push({ to, subject, text }); return true; }
   if (!mailConfigured()) {
-    console.warn(`[mail] SMTP not configured — not sending "${subject}" to ${to}`);
+    console.warn(`[mail] not configured — not sending "${subject}" to ${to}`);
     return false;
   }
   try {
-    const t = await getTransport();
-    await t.sendMail({ from: config.smtp.from, to, subject, text });
+    if (useBrevo()) {
+      const r = await brevoFetch("/smtp/email", {
+        method: "POST",
+        body: JSON.stringify({ sender: sender(), to: [{ email: to }], subject, textContent: text }),
+      });
+      if (!r.ok) throw Object.assign(new Error(r.body.message ?? `HTTP ${r.status}`), { code: `brevo_${r.status}` });
+    } else {
+      const t = await getTransport();
+      await t.sendMail({ from: from(), to, subject, text });
+    }
     return true;
   } catch (e) {
     const err = e as { code?: string; message?: string };
-    console.error(`[mail] send failed to ${to}: ${err.code ?? "SMTP_ERROR"} ${err.message ?? e}`);
+    console.error(`[mail] send failed to ${to}: ${err.code ?? "MAIL_ERROR"} ${err.message ?? e}`);
     return false;
   }
 }

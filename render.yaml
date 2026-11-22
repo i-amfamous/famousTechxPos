@@ -21,10 +21,12 @@ services:
         sync: false          # public address of the static site below
       - key: CORS_ORIGINS
         sync: false          # optional: extra origins, e.g. the site's onrender.com URL
+      - key: BREVO_API_KEY
+        sync: false          # preferred: Brevo REST API key (xkeysib-…)
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
-        value: "587"         # Brevo SMTP relay (TLS)
+        value: "587"         # Brevo SMTP relay (TLS) fallback
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS

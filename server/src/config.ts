@@ -16,6 +16,8 @@ export const config = {
     pass: env.SMTP_PASS ?? "",
     from: env.MAIL_FROM ?? env.SMTP_USER ?? "",
   },
+  /** Brevo REST API key (xkeysib-…). Preferred over SMTP: one credential, no relay port/IP issues. */
+  brevoApiKey: env.BREVO_API_KEY ?? "",
   upcItemDbKey: env.UPCITEMDB_KEY ?? "",
   /** Set to "false" to disable online barcode lookups. */
   barcodeOnline: (env.BARCODE_ONLINE ?? "true") !== "false",
