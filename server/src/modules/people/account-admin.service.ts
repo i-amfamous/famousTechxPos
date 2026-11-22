@@ -5,7 +5,7 @@
 import { audit } from "../../core/activity-log.js";
 import { one, type Db } from "../../core/db.js";
 import { bad, forbidden } from "../../core/errors.js";
-import { sendMail } from "../../core/mail.js";
+import { sendBrandedMail } from "../../core/mail.js";
 import { nowSql } from "../../core/time.js";
 import { bool, clean } from "../../core/values.js";
 import { requirePassword, requirePerm, type Actor } from "../../auth/access.js";
@@ -45,7 +45,14 @@ export async function resetEmployeePassword(db: Db, actor: Actor, memberId: stri
   await audit(db, { orgId: actor.orgId, actorId: actor.memberId }, "employee", "Reset password", m.full_name, { entityType: "member", entityId: memberId });
   if (u?.email) {
     const link = await issueLinkToken(db, m.user_id, "reset", m.id);
-    const ok = await sendMail(u.email, "Reset your Famous TechX POS password", `Hi ${m.full_name},\n\nA manager reset your password. Open this link within 1 hour to choose a new one:\n\n${link}\n`);
+    const biz = await one(db, "SELECT name FROM businesses WHERE id = ?", [actor.orgId]);
+    const ok = await sendBrandedMail(u.email, "Reset your Famous TechX POS password", {
+      businessName: biz?.name as string | undefined,
+      greeting: `Hi ${m.full_name},`,
+      title: "Your password was reset",
+      paragraphs: [`A manager at ${biz?.name ?? "your business"} reset your Famous TechX POS password. Choose a new one using the button below.`],
+      action: { label: "Choose a new password", url: link, note: "This link is valid for 1 hour and can only be used once." },
+    });
     if (ok) return { ok: true, emailed: u.email as string };
   }
   const temp = randomPassword();
@@ -60,7 +67,13 @@ export async function resendInvite(db: Db, actor: Actor, memberId: string) {
   if (!u?.email) throw bad("no_email", "This employee has no email address. Use 'Reset password' to give them a temporary one.");
   const link = await issueLinkToken(db, m.user_id, m.status === "invited" ? "invite" : "reset", m.id);
   const biz = await one(db, "SELECT name FROM businesses WHERE id = ?", [actor.orgId]);
-  const ok = await sendMail(u.email, `Your invitation to ${biz?.name} on Famous TechX POS`, `Hi ${m.full_name},\n\nOpen this link to set your password and get started:\n\n${link}\n`);
+  const ok = await sendBrandedMail(u.email, `Your invitation to ${biz?.name} on Famous TechX POS`, {
+    businessName: biz?.name as string | undefined,
+    greeting: `Hi ${m.full_name},`,
+    title: `You're invited to ${biz?.name ?? "Famous TechX POS"}`,
+    paragraphs: [`You've been added to the team at ${biz?.name ?? "your business"}. Set your password to get started with Famous TechX POS.`],
+    action: { label: "Accept invitation", url: link, note: "This link is valid for 7 days and can only be used once." },
+  });
   return { ok: true, emailed: ok ? (u.email as string) : undefined, inviteLink: ok ? undefined : link };
 }
 

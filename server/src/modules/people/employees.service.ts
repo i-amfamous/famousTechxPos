@@ -2,7 +2,7 @@
 import { audit } from "../../core/activity-log.js";
 import { inList, isDuplicateKey, one, type Db, type Row } from "../../core/db.js";
 import { bad, forbidden, notFound } from "../../core/errors.js";
-import { sendMail } from "../../core/mail.js";
+import { sendBrandedMail } from "../../core/mail.js";
 import { iso, nowSql, today } from "../../core/time.js";
 import { bool, clean, n, nullIfEmpty, uuid } from "../../core/values.js";
 import { requirePerm, type Actor } from "../../auth/access.js";
@@ -126,8 +126,13 @@ export async function createEmployee(db: Db, actor: Actor, i: NewEmployee) {
   let emailed: string | undefined;
   if (i.inviteMethod === "email" && email) {
     inviteLink = await issueLinkToken(db, result.userId, "invite", result.memberId);
-    const ok = await sendMail(email, `You've been added to ${result.businessName} on Famous TechX POS`,
-      `Hi ${fullName},\n\n${actor.member.full_name} added you to ${result.businessName}. Open this link to set your password and get started (valid for 7 days):\n\n${inviteLink}\n`);
+    const ok = await sendBrandedMail(email, `You've been added to ${result.businessName} on Famous TechX POS`, {
+      businessName: result.businessName,
+      greeting: `Hi ${fullName},`,
+      title: `Welcome to ${result.businessName}`,
+      paragraphs: [`${actor.member.full_name} added you to the team at ${result.businessName}. Set your password to get started with Famous TechX POS.`],
+      action: { label: "Set my password", url: inviteLink, note: "This link is valid for 7 days and can only be used once." },
+    });
     if (ok) emailed = email;
   }
   // When email isn't set up the manager gets the link to share another way.

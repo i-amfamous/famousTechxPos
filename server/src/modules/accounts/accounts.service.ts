@@ -1,7 +1,7 @@
 /** Accounts: sign-up, sign-in (email or phone), password reset, profile and the session context (`GET /me`). */
 import { isDuplicateKey, one, type Db } from "../../core/db.js";
 import { bad, forbidden, unauthorized } from "../../core/errors.js";
-import { sendMail } from "../../core/mail.js";
+import { sendBrandedMail } from "../../core/mail.js";
 import { getSettings } from "../../core/settings.js";
 import { nowSql } from "../../core/time.js";
 import { bool, clean, digits, n, nullIfEmpty, uuid } from "../../core/values.js";
@@ -75,8 +75,13 @@ export async function requestPasswordReset(db: Db, emailIn: string) {
   if (!u) return; // never reveal whether an account exists
   await db.run("UPDATE auth_tokens SET used_at = ? WHERE user_id = ? AND purpose = 'reset' AND used_at IS NULL", [nowSql(), u.id]);
   const link = await issueLinkToken(db, u.id, "reset");
-  await sendMail(email, "Reset your Famous TechX POS password",
-    `Hi ${u.full_name},\n\nSomeone asked to reset your password. Open this link within 1 hour to choose a new one:\n\n${link}\n\nIf this wasn't you, ignore this email.`);
+  await sendBrandedMail(email, "Reset your Famous TechX POS password", {
+    greeting: `Hi ${u.full_name},`,
+    title: "Reset your password",
+    paragraphs: ["We received a request to reset the password for your Famous TechX POS account. Use the button below to choose a new one."],
+    action: { label: "Reset my password", url: link, note: "This link is valid for 1 hour and can only be used once." },
+    footnote: "If this wasn't you, ignore this email — your password won't change.",
+  });
 }
 
 /** Invite acceptance and password reset: sets the password, activates an invited member, signs in. */

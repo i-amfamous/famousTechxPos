@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { createApp } from "./app.js";
 import { config } from "./config.js";
 import { createMysqlDb } from "./core/db.js";
-import { mailConfigured } from "./core/mail.js";
+import { mailConfigured, mailDiagnostics } from "./core/mail.js";
 import { attachScanRelay } from "./realtime/scan-relay.js";
 
 async function main() {
@@ -20,7 +20,7 @@ async function main() {
   const relay = attachScanRelay(server);
   server.listen(config.port, () => {
     console.log(`Famous TechX POS API listening on :${config.port}`);
-    console.log(`  web app: ${config.appUrl}   email: ${mailConfigured() ? "SMTP ready" : "not configured (invite links are shown in the app)"}`);
+    console.log(`  web app: ${config.appUrl}   email: ${mailConfigured() ? `${mailDiagnostics().transport} ready` : "not configured (invite links are shown in the app)"}`);
   });
   let stopping = false;
   const stop = () => {

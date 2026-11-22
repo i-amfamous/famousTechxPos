@@ -3,6 +3,7 @@
  * no relay port / IP allowlist issues); SMTP relay is kept as a fallback.
  */
 import { config } from "../config.js";
+import { brandedMail } from "./mail-template.js";
 
 const useBrevo = () => !!config.brevoApiKey;
 const from = () => config.smtp.from;
@@ -96,8 +97,8 @@ export async function verifyMail(): Promise<{ ok: boolean; message: string }> {
   }
 }
 
-/** Sends a plain-text email. Returns false (and logs) when mail isn't set up or sending fails. */
-export async function sendMail(to: string, subject: string, text: string): Promise<boolean> {
+/** Sends an email. `html` is the branded letterhead; `text` is the plain-text fallback. */
+export async function sendMail(to: string, subject: string, text: string, html?: string): Promise<boolean> {
   if (captureOnly) { outbox.push({ to, subject, text }); return true; }
   if (!mailConfigured()) {
     console.warn(`[mail] not configured — not sending "${subject}" to ${to}`);
@@ -107,12 +108,12 @@ export async function sendMail(to: string, subject: string, text: string): Promi
     if (useBrevo()) {
       const r = await brevoFetch("/smtp/email", {
         method: "POST",
-        body: JSON.stringify({ sender: sender(), to: [{ email: to }], subject, textContent: text }),
+        body: JSON.stringify({ sender: sender(), to: [{ email: to }], subject, textContent: text, ...(html ? { htmlContent: html } : {}) }),
       });
       if (!r.ok) throw Object.assign(new Error(r.body.message ?? `HTTP ${r.status}`), { code: `brevo_${r.status}` });
     } else {
       const t = await getTransport();
-      await t.sendMail({ from: from(), to, subject, text });
+      await t.sendMail({ from: from(), to, subject, text, ...(html ? { html } : {}) });
     }
     return true;
   } catch (e) {
@@ -120,4 +121,13 @@ export async function sendMail(to: string, subject: string, text: string): Promi
     console.error(`[mail] send failed to ${to}: ${err.code ?? "MAIL_ERROR"} ${err.message ?? e}`);
     return false;
   }
+}
+
+/**
+ * Sends an email using the shared Famous TechX POS letterhead.
+ * Keeping this wrapper here means no service needs to assemble HTML itself.
+ */
+export async function sendBrandedMail(to: string, subject: string, input: Parameters<typeof brandedMail>[0]): Promise<boolean> {
+  const { html, text } = brandedMail(input);
+  return sendMail(to, subject, text, html);
 }
