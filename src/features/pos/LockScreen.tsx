@@ -177,7 +177,7 @@ export function LockScreen() {
       </div>
 
       {/* Employee picker / PIN */}
-      <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8 lg:px-10">
+      <div className="flex flex-1 justify-center overflow-x-hidden overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:px-10">
         <div className="my-auto w-full max-w-3xl auth-panel-in" key={selected ? `${selected.id}-${mode}` : "roster"}>
           {!selected ? (
             <>
@@ -324,7 +324,7 @@ function NotATill() {
   const navigate = useNavigate();
   return (
     <AuthBackdrop>
-      <div className="flex flex-1 items-center justify-center p-5">
+      <div className="flex flex-1 justify-center overflow-x-hidden overflow-y-auto p-5">
         <AuthCard className="my-auto max-w-lg text-center">
           <div className="hidden justify-center lg:flex"><AuthBrandHeader compact /></div>
           <span className="mx-auto mt-2 flex size-16 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-100"><LuMonitorSmartphone className="size-8" /></span>

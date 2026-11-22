@@ -35,7 +35,7 @@ export function AuthBrandHeader({ compact }: { compact?: boolean }) {
 /** Soft white surface used on top of the brand backdrop. */
 export function AuthCard({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("auth-card relative w-full overflow-hidden rounded-[28px] border border-white/80 bg-white/95 p-6 shadow-[0_28px_80px_-32px_rgba(20,20,43,0.55)] ring-1 ring-ink-200/60 sm:p-9", className)}>
+    <div className={cn("auth-card relative w-full min-w-0 overflow-hidden rounded-[24px] border border-white/80 bg-white/95 p-5 shadow-[0_28px_80px_-32px_rgba(20,20,43,0.55)] ring-1 ring-ink-200/60 sm:rounded-[28px] sm:p-7 lg:p-9", className)}>
       {children}
     </div>
   );

@@ -28,9 +28,9 @@ function AuthShell({ children, wide, card = true }: { children: ReactNode; wide?
           <TillShortcut />
         </div>
       </div>
-      <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8 lg:px-10">
-        <div className={cn("my-auto w-full auth-panel-in", wide ? "max-w-3xl" : "max-w-md")}>
-          <div className="mb-6 lg:hidden"><AuthBrandHeader compact /></div>
+      <div className="flex flex-1 justify-center overflow-x-hidden overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 lg:px-10">
+        <div className={cn("my-auto w-full min-w-0 auth-panel-in", wide ? "max-w-3xl" : "max-w-md")}>
+          <div className="mb-4 sm:mb-6 lg:hidden"><AuthBrandHeader compact /></div>
           {card ? <AuthCard>{children}</AuthCard> : children}
         </div>
       </div>
@@ -157,9 +157,9 @@ export function AcceptInvitePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const checks = [
-    { ok: pw.length >= 8, label: "At least 8 characters" },
-    { ok: /[A-Z]/.test(pw) && /[a-z]/.test(pw), label: "Upper and lower case letters" },
-    { ok: /\d/.test(pw), label: "At least one number" },
+    { ok: pw.length >= 8, label: "At least 8 characters", short: "8+ characters" },
+    { ok: /[A-Z]/.test(pw) && /[a-z]/.test(pw), label: "Upper and lower case letters", short: "Upper & lower" },
+    { ok: /\d/.test(pw), label: "At least one number", short: "One number" },
   ];
   const score = checks.filter((c) => c.ok).length;
   const strong = score === checks.length;
@@ -176,10 +176,10 @@ export function AcceptInvitePage() {
     return (
       <AuthShell>
         <div className="text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 ring-1 ring-amber-200"><LuCircleAlert className="size-6" /></div>
-          <h1 className="mt-5 text-2xl font-semibold tracking-tight text-ink-900">This link has expired</h1>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-600">Invite and reset links work once and expire for your security. Ask your manager to resend the invitation, or request a fresh reset link.</p>
-          <div className="mt-6 flex justify-center gap-2"><Button variant="secondary" onClick={() => navigate("/forgot-password")}>Reset password</Button><Button onClick={() => navigate("/login")}>Sign in</Button></div>
+          <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 ring-1 ring-amber-200 sm:size-14"><LuCircleAlert className="size-6" /></div>
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-ink-900 sm:mt-5">This link has expired</h1>
+          <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-ink-600 sm:mt-2">Invite and reset links work once and expire for your security. Ask your manager to resend the invitation, or request a fresh reset link.</p>
+          <div className="mt-5 flex flex-col justify-center gap-2 sm:mt-6 sm:flex-row"><Button variant="secondary" onClick={() => navigate("/forgot-password")}>Reset password</Button><Button onClick={() => navigate("/login")}>Sign in</Button></div>
         </div>
       </AuthShell>
     );
@@ -198,19 +198,19 @@ export function AcceptInvitePage() {
   return (
     <AuthShell>
       <div className="text-center">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 text-white shadow-lg shadow-brand-500/25 ring-1 ring-white/40">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-violet-600 text-white shadow-lg shadow-brand-500/25 ring-1 ring-white/40 sm:size-14">
           <LuLockKeyhole className="size-6" />
         </div>
-        <h1 className="mt-5 text-3xl font-semibold tracking-tight text-ink-900">{heading}</h1>
-        <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-500">{intro}</p>
+        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-ink-900 sm:mt-5 sm:text-3xl">{heading}</h1>
+        <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-ink-500 sm:mt-2">{intro}</p>
       </div>
 
-      <div className="mx-auto mt-6 w-full max-w-sm rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-violet-50 p-4 text-left">
+      <div className="mx-auto mt-4 w-full max-w-sm rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 to-violet-50 p-3 text-left sm:mt-6 sm:p-4">
         <p className="flex items-center gap-2 text-xs font-semibold text-brand-800"><LuShieldCheck className="size-4" /> Secure, one-time setup</p>
-        <p className="mt-1.5 text-xs leading-relaxed text-ink-600">This link came from Famous TechX POS and only you can use it. Your password is stored as a one-way hash, never in plain text.</p>
+        <p className="mt-1 text-xs leading-relaxed text-ink-600 sm:mt-1.5">This link came from Famous TechX POS and only you can use it. Your password is stored as a one-way hash, never in plain text.</p>
       </div>
 
-      <form className="mx-auto mt-6 w-full max-w-sm space-y-4 text-left" onSubmit={submit}>
+      <form className="mx-auto mt-4 w-full max-w-sm space-y-3 text-left sm:mt-6 sm:space-y-4" onSubmit={submit}>
         {error && <Callout tone="danger" icon={<LuCircleAlert className="size-4" />}>{error}</Callout>}
         {signedIn && <Input label="Account" value={authEmail ?? user.phone} disabled />}
         <div>
@@ -218,13 +218,14 @@ export function AcceptInvitePage() {
           <div className="mt-2 flex gap-1.5" aria-hidden="true">
             {[1, 2, 3].map((n) => <span key={n} className={cn("h-1.5 flex-1 rounded-full transition-colors", score >= n ? (strong ? "bg-emerald-500" : "bg-amber-400") : "bg-ink-200")} />)}
           </div>
-          <ul className="mt-3 space-y-1.5 rounded-xl bg-ink-50/80 p-3 ring-1 ring-ink-100">
+          <ul className="mt-2.5 grid grid-cols-1 gap-1 rounded-xl bg-ink-50/80 p-2.5 ring-1 ring-ink-100 sm:mt-3 sm:grid-cols-3 sm:gap-1.5 sm:p-3">
             {checks.map((c) => (
-              <li key={c.label} className={cn("flex items-center gap-2 text-xs transition-colors", c.ok ? "font-medium text-emerald-700" : "text-ink-500")}>
-                <span className={cn("flex size-4 items-center justify-center rounded-full", c.ok ? "bg-emerald-600 text-white" : "bg-ink-200 text-ink-400")}>
+              <li key={c.label} className={cn("flex items-center gap-1.5 text-[11px] transition-colors sm:gap-2 sm:text-xs", c.ok ? "font-medium text-emerald-700" : "text-ink-500")}>
+                <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-full", c.ok ? "bg-emerald-600 text-white" : "bg-ink-200 text-ink-400")}>
                   <LuCheck className="size-3" />
                 </span>
-                {c.label}
+                <span className="sm:hidden">{c.short}</span>
+                <span className="hidden sm:inline">{c.label}</span>
               </li>
             ))}
           </ul>
