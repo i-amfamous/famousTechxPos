@@ -8,14 +8,26 @@ import type { Server } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 
 const rooms = new Map<string, Set<WebSocket>>();
+const SCAN_PATH = /^(\/api)?\/ws\/scan$/;
+const SESSION = /^[A-Za-z0-9_-]{12,64}$/;
+
+/** True for every scanner route, including one with a bad session id. */
+export function isScanPath(url: URL): boolean {
+  return SCAN_PATH.test(url.pathname);
+}
 
 export function attachScanRelay(server: Server) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
 
   server.on("upgrade", (req, socket, head) => {
     const url = new URL(req.url ?? "/", "http://x");
+    // Leave other upgrades alone so the change relay can accept /ws/invalidate.
+    if (!isScanPath(url)) return;
     const session = url.searchParams.get("session") ?? "";
-    if (!/^(\/api)?\/ws\/scan$/.test(url.pathname) || !/^[A-Za-z0-9_-]{12,64}$/.test(session)) { socket.destroy(); return; }
+    if (!SESSION.test(session)) {
+      socket.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+      return;
+    }
     wss.handleUpgrade(req, socket, head, (ws) => {
       let room = rooms.get(session);
       if (!room) { room = new Set(); rooms.set(session, room); }

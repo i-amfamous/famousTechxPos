@@ -9,6 +9,7 @@ import { AppError } from "../src/core/errors.js";
 import { dispatch } from "../src/http/router.js";
 import { router } from "../src/http/routes.js";
 import { attachChangeRelay } from "../src/realtime/change-relay.js";
+import { attachScanRelay } from "../src/realtime/scan-relay.js";
 import { emitChange, onChange, type ChangeEvent } from "../src/realtime/changes.js";
 import { createSqliteDb } from "./sqlite.js";
 
@@ -80,6 +81,34 @@ describe("real-time change notices", () => {
       assert.equal(events[0]?.orgId, S.org);
       assert.deepEqual(Object.keys(events[0]!).sort(), ["at", "orgId", "type"]);
     } finally { off(); }
+  });
+
+  it("shares upgrade routing with the scanner relay", async () => {
+    const server = createServer();
+    const scanner = attachScanRelay(server);
+    const relay = attachChangeRelay(server, db);
+    await new Promise<void>((r) => server.listen(0, r));
+    const base = `ws://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const sockets: WebSocket[] = [];
+    try {
+      const invalidate = new WebSocket(`${base}/ws/invalidate`);
+      const scan = new WebSocket(`${base}/ws/scan?session=session-aaaaaaaa&role=till`);
+      sockets.push(invalidate, scan);
+      await Promise.all([opened(invalidate), opened(scan)]);
+      await authenticate(invalidate, { token: S.token });
+
+      const bad = new WebSocket(`${base}/ws/invalidate`);
+      sockets.push(bad);
+      await opened(bad);
+      bad.send(JSON.stringify({ type: "auth", token: "not-a-session" }));
+      const code = await new Promise<number>((resolve) => bad.once("close", resolve));
+      assert.equal(code, 4401);
+    } finally {
+      for (const ws of sockets) ws.terminate();
+      scanner.close();
+      relay.close();
+      await new Promise<void>((r) => server.close(() => r()));
+    }
   });
 
   it("delivers by business only and authenticates sessions and tills", async () => {

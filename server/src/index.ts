@@ -4,8 +4,8 @@ import { createApp } from "./app.js";
 import { config } from "./config.js";
 import { createMysqlDb } from "./core/db.js";
 import { mailConfigured, mailDiagnostics } from "./core/mail.js";
-import { attachScanRelay } from "./realtime/scan-relay.js";
-import { attachChangeRelay } from "./realtime/change-relay.js";
+import { attachScanRelay, isScanPath } from "./realtime/scan-relay.js";
+import { attachChangeRelay, isChangeUpgrade } from "./realtime/change-relay.js";
 
 async function main() {
   if (!config.databaseUrl) {
@@ -20,6 +20,13 @@ async function main() {
   const server = createServer(createApp(db));
   const relay = attachScanRelay(server);
   const changes = attachChangeRelay(server, db);
+  // Both relays ignore upgrades they do not own. Close anything else that looks
+  // like a WS route so stale sockets never hang after a redeploy.
+  server.on("upgrade", (req, socket) => {
+    const url = new URL(req.url ?? "/", "http://x");
+    const wsRoute = /^(\/api)?\/ws\//.test(url.pathname);
+    if (wsRoute && !isScanPath(url) && !isChangeUpgrade(url)) socket.destroy();
+  });
   server.listen(config.port, () => {
     console.log(`Famous TechX POS API listening on :${config.port}`);
     console.log(`  web app: ${config.appUrl}   email: ${mailConfigured() ? `${mailDiagnostics().transport} ready` : "not configured (invite links are shown in the app)"}`);

@@ -13,6 +13,13 @@ import { sha256 } from "../auth/crypto.js";
 import { one, type Db } from "../core/db.js";
 import { onChange, type ChangeEvent } from "./changes.js";
 
+const CHANGE_PATH = /^(\/api)?\/ws\/invalidate$/;
+
+/** True only for the invalidation upgrades this relay accepts. */
+export function isChangeUpgrade(url: URL): boolean {
+  return CHANGE_PATH.test(url.pathname);
+}
+
 interface Client {
   ws: WebSocket;
   orgId: string;
@@ -69,7 +76,7 @@ export function attachChangeRelay(server: Server, db: Db) {
 
   server.on("upgrade", (req, socket, head) => {
     const url = new URL(req.url ?? "/", "http://x");
-    if (!/^(\/api)?\/ws\/invalidate$/.test(url.pathname)) return;
+    if (!isChangeUpgrade(url)) return;
     wss.handleUpgrade(req, socket, head, (ws) => {
       sockets.add(ws);
       let settled = false;
