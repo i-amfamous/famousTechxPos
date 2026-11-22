@@ -10,7 +10,8 @@ import { requireBranch, requirePerm, type Actor } from "../../auth/access.js";
 import { applyStock } from "../inventory/stock-ledger.js";
 
 export async function listPurchaseOrders(db: Db, actor: Actor) {
-  requirePerm(actor, "purchases.manage");
+  // Purchase figures feed the reports an accountant can open. Creating, changing
+  // and receiving orders still needs purchases.manage.
   const branches = [...actor.branchIds];
   const pos = branches.length
     ? await db.all(`SELECT * FROM purchase_orders WHERE organization_id = ? AND branch_id IN (${inList(branches)}) ORDER BY created_at DESC`, [actor.orgId, ...branches])

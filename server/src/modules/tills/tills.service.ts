@@ -17,7 +17,8 @@ export async function terminalByToken(db: Db, token: string | undefined): Promis
 }
 
 export async function listTerminals(db: Db, actor: Actor) {
-  requirePerm(actor, "settings.manage");
+  // Till names appear on sales, receipts and shift reports, so any member may read them.
+  // Registering or revoking a till still needs settings.manage.
   const rows = await db.all("SELECT * FROM pos_terminals WHERE organization_id = ? ORDER BY created_at", [actor.orgId]);
   return rows.map((t) => ({ id: t.id, name: t.name, code: t.code, branchId: t.branch_id, status: t.status, lastSeenAt: iso(t.last_seen_at ?? t.created_at), registeredBy: t.registered_by ?? "" }));
 }

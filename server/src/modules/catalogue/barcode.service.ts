@@ -37,7 +37,7 @@ async function openFoodFacts(code: string): Promise<Found | null> {
 export const barcodeProviders: { list: ((code: string) => Promise<Found | null>)[] } = { list: [upcItemDb, openFoodFacts] };
 
 export async function lookupBarcodeOnline(db: Db, actor: Actor, raw: string) {
-  requireAnyPerm(actor, ["products.manage", "inventory.adjust", "purchases.manage"]);
+  requireAnyPerm(actor, ["pos.sell", "products.view", "products.manage", "inventory.adjust", "purchases.manage"]);
   const code = String(raw ?? "").replace(/\D/g, "");
   if (code.length < 8 || code.length > 14) return { found: false, product: null };
   const cached = await one(db, "SELECT * FROM barcode_cache WHERE barcode = ?", [code]);

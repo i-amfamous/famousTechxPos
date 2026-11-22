@@ -9,7 +9,7 @@ import { requireAnyPerm, requireBranch, requirePerm, type Actor } from "../../au
 import { applyStock } from "./stock-ledger.js";
 
 export async function listTransfers(db: Db, actor: Actor) {
-  requireAnyPerm(actor, ["inventory.transfer", "inventory.adjust"]);
+  requireAnyPerm(actor, ["inventory.transfer", "inventory.adjust", "reports.view"]);
   const branches = [...actor.branchIds];
   const rows = branches.length
     ? await db.all(`SELECT * FROM stock_transfers WHERE organization_id = ? AND (from_branch_id IN (${inList(branches)}) OR to_branch_id IN (${inList(branches)})) ORDER BY created_at DESC LIMIT 100`, [actor.orgId, ...branches, ...branches])

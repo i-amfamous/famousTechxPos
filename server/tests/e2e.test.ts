@@ -354,6 +354,29 @@ describe("back office", () => {
     assert.ok((await ok("get", "/notifications", { token })).some((x: any) => x.id === newId));
   });
 
+  it("lets an accountant load report data without manage permissions", async () => {
+    const added = await ok("post", "/employees", { token: S.owner, body: {
+      fullName: "Abena Accounts", phone: "0275550177", roleId: S.roles.accountant.id, branchIds: [S.branch, S.branch2], inviteMethod: "temp_password",
+    } });
+    const token = (await ok("post", "/auth/login", { body: { identifier: "0275550177", password: added.tempPassword } })).token;
+    const me = await ok("get", "/me", { token });
+    assert.ok(me.permissions.includes("reports.view"));
+    assert.equal(me.permissions.includes("purchases.manage"), false);
+    assert.equal(me.permissions.includes("settings.manage"), false);
+
+    const b = `branchId=${S.branch}`;
+    const range = "from=2026-01-01&to=2026-12-31";
+    for (const path of [
+      "/terminals", "/suppliers", "/purchase-orders", "/expenses", "/cash-movements", "/transfers",
+      `/sales?${b}`, `/shifts?${b}`, `/stock/movements?${b}`,
+      `/reports/dashboard?${range}`, `/reports/pnl?${range}`, `/reports/employees?${range}`,
+    ]) await ok("get", path, { token });
+
+    await err("permission_denied", "post", "/suppliers", { token, body: { name: "No supplier" } });
+    await err("permission_denied", "post", "/terminals", { token, body: { name: "No till", branchId: S.branch } });
+    await err("permission_denied", "post", "/purchase-orders", { token, body: { supplierId: "none", branchId: S.branch, lines: [] } });
+  });
+
   it("edits roles and per-employee access", async () => {
     const r = await ok("post", "/roles", { token: S.owner, body: { name: "Senior cashier", maxDiscountPercent: 15, permissions: ["pos.sell", "pos.discount", "shift.open_close", "bogus.perm"] } });
     const roles = await ok("get", "/roles", { token: S.owner });

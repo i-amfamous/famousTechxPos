@@ -7,7 +7,8 @@ import { clean, n, nullIfEmpty, uuid } from "../../core/values.js";
 import { requirePerm, type Actor } from "../../auth/access.js";
 
 export async function listSuppliers(db: Db, actor: Actor) {
-  requirePerm(actor, "purchases.manage");
+  // Supplier names and balances are needed by the reports an accountant can open.
+  // Only adding or editing suppliers needs purchases.manage.
   const sup = await db.all("SELECT * FROM suppliers WHERE organization_id = ? ORDER BY name", [actor.orgId]);
   const pos = await db.all("SELECT id, supplier_id, status, amount_paid FROM purchase_orders WHERE organization_id = ?", [actor.orgId]);
   const items = pos.length ? await db.all(`SELECT purchase_order_id, quantity, unit_cost FROM purchase_items WHERE purchase_order_id IN (${inList(pos.map((p) => p.id))})`, pos.map((p) => p.id)) : [];
