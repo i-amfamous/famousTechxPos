@@ -69,7 +69,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <NavLink
           to="/pos"
           onClick={onNavigate}
-          className="flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-violet-600 text-sm font-semibold text-white shadow-glow transition-all hover:from-brand-700 hover:to-violet-700"
+          className="flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-violet-600 text-sm font-semibold text-white shadow-glow transition-all hover:from-brand-700 hover:to-violet-700 active:scale-[.98]"
         >
           <LuShoppingCart className="size-4" /> Open POS
         </NavLink>
@@ -80,7 +80,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           if (!items.length) return null;
           return (
             <div key={gi}>
-              {g.title && <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-ink-400">{g.title}</p>}
+              {g.title && <p className="mb-1.5 px-3 text-xs font-semibold text-ink-500">{g.title}</p>}
               <ul className="space-y-0.5">
                 {items.map((i) => (
                   <li key={i.to}>
@@ -89,8 +89,8 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                       onClick={onNavigate}
                       className={({ isActive }) =>
                         cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors [&>svg]:size-[18px]",
-                          isActive ? "bg-brand-50 text-brand-700 [&>svg]:text-brand-600" : "text-ink-600 hover:bg-ink-100 hover:text-ink-900 [&>svg]:text-ink-400",
+                          "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all [&>svg]:size-[18px]",
+                          isActive ? "bg-brand-50 text-brand-700 shadow-sm ring-1 ring-brand-100 [&>svg]:text-brand-600" : "text-ink-600 hover:bg-ink-100 hover:text-ink-900 [&>svg]:text-ink-500",
                         )
                       }
                     >
@@ -142,7 +142,7 @@ export function AppLayout() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-ink-200 bg-white/90 px-4 backdrop-blur sm:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-ink-200/80 bg-white/90 px-4 backdrop-blur sm:px-6">
           <button className="rounded-lg p-2 text-ink-600 hover:bg-ink-100 lg:hidden" aria-label="Open menu" onClick={() => setMobileOpen(true)}>
             <LuMenu className="size-5" />
           </button>
@@ -188,11 +188,11 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-7 sm:px-6 lg:px-8">
           <Outlet />
         </main>
         {demo && (
-          <footer className="px-6 pb-4 text-center text-xs text-ink-400">
+          <footer className="px-6 pb-5 text-center text-xs text-ink-500">
             <Badge tone="warning">Demo mode · sample data - set VITE_API_URL in .env to go live</Badge>
           </footer>
         )}

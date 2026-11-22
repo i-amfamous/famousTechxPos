@@ -6,8 +6,8 @@ type Size = "sm" | "md" | "lg" | "xl";
 
 const variants: Record<Variant, string> = {
   primary: "bg-gradient-to-br from-brand-600 to-brand-700 text-white shadow-sm hover:from-brand-500 hover:to-brand-600 hover:shadow-glow active:scale-[.98] disabled:from-brand-300 disabled:to-brand-300",
-  secondary: "bg-white text-ink-700 ring-1 ring-inset ring-ink-200 hover:bg-ink-50 shadow-sm disabled:text-ink-400",
-  outline: "bg-transparent text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50",
+  secondary: "bg-white text-ink-700 shadow-sm ring-1 ring-inset ring-ink-200 hover:bg-ink-50 hover:ring-ink-300 disabled:text-ink-400",
+  outline: "bg-transparent text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50 hover:ring-brand-400",
   ghost: "bg-transparent text-ink-600 hover:bg-ink-100 hover:text-ink-900",
   danger: "bg-rose-600 text-white hover:bg-rose-700 shadow-sm disabled:bg-rose-300",
   dangerGhost: "bg-transparent text-rose-600 hover:bg-rose-50",
@@ -17,7 +17,7 @@ const variants: Record<Variant, string> = {
   checkout: "bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white shadow-[0_10px_28px_-10px_rgba(5,150,105,.75)] ring-1 ring-inset ring-white/25 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 hover:shadow-[0_14px_32px_-10px_rgba(5,150,105,.85)] active:scale-[.98] disabled:from-emerald-300 disabled:to-emerald-300 disabled:shadow-none",
 };
 const sizes: Record<Size, string> = {
-  sm: "h-8 px-3 text-sm gap-1.5 rounded-lg",
+  sm: "h-9 px-3 text-sm gap-1.5 rounded-lg",
   md: "h-10 px-4 text-sm gap-2 rounded-lg",
   lg: "h-12 px-5 text-base gap-2 rounded-xl",
   xl: "h-16 px-6 text-lg gap-3 rounded-2xl",
@@ -43,7 +43,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        "inline-flex select-none items-center justify-center font-medium transition-all duration-150 disabled:cursor-not-allowed",
+        "inline-flex select-none items-center justify-center whitespace-nowrap font-medium transition-all duration-150 disabled:cursor-not-allowed",
         variants[variant],
         sizes[size],
         block && "w-full",
@@ -64,7 +64,7 @@ export function IconButton({ label, className, children, ...rest }: ButtonHTMLAt
       type="button"
       aria-label={label}
       title={label}
-      className={cn("inline-flex size-9 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900", className)}
+      className={cn("inline-flex size-9 items-center justify-center rounded-lg text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900 active:bg-ink-200/70", className)}
       {...rest}
     >
       {children}

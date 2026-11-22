@@ -23,16 +23,16 @@
   --color-ink-100: #eeeef5;
   --color-ink-200: #e0e0ea;
   --color-ink-300: #c8c8d6;
-  --color-ink-400: #9494a8;
-  --color-ink-500: #6b6b80;
+  --color-ink-400: #82829a;
+  --color-ink-500: #606075;
   --color-ink-600: #4d4d63;
   --color-ink-700: #37374a;
   --color-ink-800: #232336;
   --color-ink-900: #14142b;
 
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.05), 0 1px 3px rgb(16 24 40 / 0.06);
-  --shadow-pop: 0 12px 32px -8px rgb(20 20 43 / 0.18), 0 4px 8px -4px rgb(20 20 43 / 0.08);
-  --shadow-glow: 0 8px 24px -8px rgb(79 70 229 / 0.45);
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 8px 24px -16px rgb(16 24 40 / 0.24);
+  --shadow-pop: 0 20px 44px -16px rgb(20 20 43 / 0.24), 0 6px 12px -6px rgb(20 20 43 / 0.1);
+  --shadow-glow: 0 12px 28px -10px rgb(79 70 229 / 0.5);
 }
 
 @layer base {
@@ -43,6 +43,10 @@
   }
   body {
     @apply bg-ink-50 font-sans text-ink-800 antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  ::selection {
+    @apply bg-brand-200 text-brand-900;
   }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-brand-500;
@@ -56,6 +60,23 @@
 @utility scrollbar-thin {
   scrollbar-width: thin;
 }
+
+/* Shared surface motion for dialogs, menus and toasts. */
+@keyframes ui-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ui-surface-in {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ui-toast-in {
+  from { opacity: 0; transform: translateY(14px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.ui-overlay { animation: ui-overlay-in .18s ease-out both; }
+.ui-surface { animation: ui-surface-in .22s cubic-bezier(.2, .8, .2, 1) both; }
+.ui-toast { animation: ui-toast-in .24s cubic-bezier(.2, .8, .2, 1) both; }
 
 /* Receipt printing: the paper feeds out of the slot, a scan line passes over it, then it tears off. */
 @keyframes printer-feed {
@@ -317,6 +338,7 @@
   .printer-body, .printer-led, .printer-head, .printer-slot, .receipt-tear { animation: none !important; }
   .receipt-output .receipt-paper { clip-path: none !important; transform: none !important; }
   .receipt-paper::after, .receipt-output .receipt-paper::after, .receipt-tear { display: none; }
+  .ui-overlay, .ui-surface, .ui-toast,
   .auth-orb, .auth-panel-in, .auth-progress, .auth-shimmer,
   .pin-dots-busy, .pin-dots-error, .scanner-line, .scanner-pulse { animation: none !important; }
   .scanner-line { top: 50%; }

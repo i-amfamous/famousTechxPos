@@ -3,7 +3,7 @@ import { LuSearch } from "react-icons/lu";
 import { cn } from "@/lib/format";
 
 const control =
-  "block w-full rounded-lg border-0 bg-white text-sm text-ink-900 shadow-sm ring-1 ring-inset ring-ink-200 placeholder:text-ink-400 focus:ring-2 focus:ring-inset focus:ring-brand-500 disabled:bg-ink-50 disabled:text-ink-500";
+  "block w-full rounded-xl border-0 bg-white text-sm text-ink-900 shadow-sm ring-1 ring-inset ring-ink-200 transition-shadow placeholder:text-ink-400 hover:ring-ink-300 focus:ring-2 focus:ring-inset focus:ring-brand-500 disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-500";
 
 export function Field({
   label, hint, error, required, children, className, htmlFor,
@@ -11,12 +11,12 @@ export function Field({
   return (
     <div className={cn("space-y-1.5", className)}>
       {label && (
-        <label htmlFor={htmlFor} className="block text-sm font-medium text-ink-700">
+        <label htmlFor={htmlFor} className="block text-sm font-semibold text-ink-800">
           {label} {required && <span className="text-rose-600">*</span>}
         </label>
       )}
       {children}
-      {error ? <p className="text-xs text-rose-600" role="alert">{error}</p> : hint ? <p className="text-xs text-ink-500">{hint}</p> : null}
+      {error ? <p className="text-xs font-medium text-rose-600" role="alert">{error}</p> : hint ? <p className="text-xs leading-relaxed text-ink-500">{hint}</p> : null}
     </div>
   );
 }
@@ -68,8 +68,8 @@ export function Textarea({ label, hint, error, className, id, required, ...rest 
 export function SearchInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className={cn("relative", className)}>
-      <LuSearch className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" aria-hidden />
-      <input type="search" className={cn(control, "h-10 pl-9 pr-3")} {...rest} />
+      <LuSearch className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-500" aria-hidden />
+      <input type="search" className={cn(control, "h-10 pl-10 pr-3")} {...rest} />
     </div>
   );
 }
@@ -92,11 +92,11 @@ export function Switch({ checked, onChange, label, description, disabled }: { ch
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(
-          "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50",
-          checked ? "bg-brand-600" : "bg-ink-300",
+          "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+          checked ? "bg-brand-600 shadow-sm" : "bg-ink-300",
         )}
       >
-        <span className={cn("inline-block size-5 rounded-full bg-white shadow transition-transform", checked ? "translate-x-5.5" : "translate-x-0.5")} />
+        <span className={cn("inline-block size-5 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform", checked ? "translate-x-5.5" : "translate-x-0.5")} />
       </button>
     </div>
   );
@@ -114,7 +114,7 @@ export function Checkbox({ label, className, ...rest }: InputHTMLAttributes<HTML
 
 export function Segmented<T extends string>({ value, onChange, options, size = "md" }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode }[]; size?: "md" | "lg" }) {
   return (
-    <div className="inline-flex rounded-lg bg-ink-100 p-1" role="radiogroup">
+    <div className="inline-flex rounded-xl bg-ink-100/80 p-1 ring-1 ring-ink-200" role="radiogroup">
       {options.map((o) => (
         <button
           key={o.value}
@@ -123,9 +123,9 @@ export function Segmented<T extends string>({ value, onChange, options, size = "
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "rounded-md font-medium transition-colors",
+            "rounded-lg font-medium transition-all",
             size === "lg" ? "px-4 py-2 text-sm" : "px-3 py-1.5 text-sm",
-            value === o.value ? "bg-white text-ink-900 shadow-sm" : "text-ink-500 hover:text-ink-800",
+            value === o.value ? "bg-white text-ink-900 shadow-sm ring-1 ring-ink-200" : "text-ink-600 hover:bg-white/60 hover:text-ink-900",
           )}
         >
           {o.label}

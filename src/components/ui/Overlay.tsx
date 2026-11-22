@@ -39,19 +39,19 @@ export function Modal({
   const w = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" }[size];
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
-      <div className="absolute inset-0 bg-ink-900/50 backdrop-blur-[2px]" onClick={dismissible ? onClose : undefined} aria-hidden />
-      <div ref={ref} role="dialog" aria-modal="true" className={cn("relative flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-white shadow-pop sm:rounded-2xl", w)}>
+      <div className="ui-overlay absolute inset-0 bg-ink-900/50 backdrop-blur-sm" onClick={dismissible ? onClose : undefined} aria-hidden />
+      <div ref={ref} role="dialog" aria-modal="true" className={cn("ui-surface relative flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-white shadow-pop ring-1 ring-ink-900/5 sm:rounded-2xl", w)}>
         {(title || dismissible) && (
-          <div className="flex items-start justify-between gap-4 border-b border-ink-100 px-6 py-4">
-            <div>
-              {title && <h2 className="text-lg font-semibold text-ink-900">{title}</h2>}
-              {description && <p className="mt-0.5 text-sm text-ink-500">{description}</p>}
+          <div className="flex items-start justify-between gap-4 border-b border-ink-100 px-6 py-5">
+            <div className="min-w-0">
+              {title && <h2 className="text-lg font-semibold tracking-tight text-ink-900">{title}</h2>}
+              {description && <p className="mt-1 text-sm leading-relaxed text-ink-600">{description}</p>}
             </div>
             {dismissible && <IconButton label="Close" onClick={onClose} className="-mr-2"><LuX className="size-5" /></IconButton>}
           </div>
         )}
         <div className="overflow-y-auto px-6 py-5">{children}</div>
-        {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-ink-100 bg-ink-50/60 px-6 py-4 sm:rounded-b-2xl">{footer}</div>}
+        {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-ink-100 bg-ink-50/70 px-6 py-4 sm:rounded-b-2xl">{footer}</div>}
       </div>
     </div>,
     document.body,
@@ -66,17 +66,17 @@ export function Drawer({
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-ink-900/40" onClick={onClose} aria-hidden />
-      <div ref={ref} role="dialog" aria-modal="true" className={cn("relative flex h-full w-full flex-col bg-white shadow-pop", width === "lg" ? "max-w-2xl" : "max-w-md")}>
-        <div className="flex items-start justify-between gap-4 border-b border-ink-100 px-6 py-4">
-          <div>
-            {title && <h2 className="text-lg font-semibold text-ink-900">{title}</h2>}
-            {description && <p className="mt-0.5 text-sm text-ink-500">{description}</p>}
+      <div className="ui-overlay absolute inset-0 bg-ink-900/45" onClick={onClose} aria-hidden />
+      <div ref={ref} role="dialog" aria-modal="true" className={cn("ui-surface relative flex h-full w-full flex-col bg-white shadow-pop", width === "lg" ? "max-w-2xl" : "max-w-md")}>
+        <div className="flex items-start justify-between gap-4 border-b border-ink-100 px-6 py-5">
+          <div className="min-w-0">
+            {title && <h2 className="text-lg font-semibold tracking-tight text-ink-900">{title}</h2>}
+            {description && <p className="mt-1 text-sm leading-relaxed text-ink-600">{description}</p>}
           </div>
           <IconButton label="Close" onClick={onClose} className="-mr-2"><LuX className="size-5" /></IconButton>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
-        {footer && <div className="flex justify-end gap-2 border-t border-ink-100 px-6 py-4">{footer}</div>}
+        {footer && <div className="flex justify-end gap-2 border-t border-ink-100 bg-ink-50/70 px-6 py-4">{footer}</div>}
       </div>
     </div>,
     document.body,
@@ -113,7 +113,7 @@ export function ConfirmDialog({
       }
     >
       <div className="flex gap-4">
-        <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", tone === "danger" ? "bg-rose-100 text-rose-600" : "bg-brand-100 text-brand-700")}>
+        <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", tone === "danger" ? "bg-rose-100 text-rose-600 ring-1 ring-rose-200" : "bg-brand-100 text-brand-700 ring-1 ring-brand-200")}>
           <LuTriangleAlert className="size-5" />
         </div>
         <div className="flex-1">
@@ -142,7 +142,7 @@ export function Menu({ trigger, items, align = "right" }: { trigger: (p: { onCli
     <div className="relative" ref={ref}>
       {trigger({ onClick: () => setOpen((o) => !o), "aria-expanded": open })}
       {open && (
-        <div role="menu" className={cn("absolute z-40 mt-1 min-w-52 rounded-xl bg-white p-1 shadow-pop ring-1 ring-ink-200", align === "right" ? "right-0" : "left-0")}>
+        <div role="menu" className={cn("ui-surface absolute z-40 mt-1 min-w-52 origin-top rounded-xl bg-white p-1.5 shadow-pop ring-1 ring-ink-200/80", align === "right" ? "right-0" : "left-0")}>
           {items.map((it, i) =>
             it === "divider" ? (
               <div key={i} className="my-1 h-px bg-ink-100" />

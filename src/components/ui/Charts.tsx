@@ -15,7 +15,7 @@ export function BarChart({ data, height = 220, format = formatMoney }: { data: {
       <div className="absolute inset-0 flex flex-col justify-between pb-6 pl-14">
         {ticks.slice().reverse().map((t) => (
           <div key={t} className="relative border-t border-dashed border-ink-200">
-            <span className="num absolute -top-2 -left-14 w-12 text-right text-[11px] text-ink-400">{t >= 1000 ? `${+(t / 1000).toFixed(1)}k` : t}</span>
+            <span className="num absolute -top-2 -left-14 w-12 text-right text-[11px] font-medium text-ink-500">{t >= 1000 ? `${+(t / 1000).toFixed(1)}k` : t}</span>
           </div>
         ))}
       </div>
@@ -37,7 +37,7 @@ export function BarChart({ data, height = 220, format = formatMoney }: { data: {
               style={{ height: `${(d.value / max) * 100}%` }}
               aria-label={`${d.label}: ${format(d.value)}`}
             />
-            <span className="absolute -bottom-5 left-1/2 hidden -translate-x-1/2 whitespace-nowrap text-[10px] text-ink-400 sm:block">
+            <span className="absolute -bottom-5 left-1/2 hidden -translate-x-1/2 whitespace-nowrap text-[11px] font-medium text-ink-500 sm:block">
               {i % 2 === data.length % 2 ? "" : d.label}
             </span>
           </div>
@@ -56,7 +56,7 @@ export function ShareBars({ data, format = formatMoney }: { data: { label: strin
         <li key={d.label}>
           <div className="mb-1 flex justify-between text-sm">
             <span className="text-ink-700">{d.label}</span>
-            <span className="num font-medium text-ink-900">{format(d.value)} <span className="font-normal text-ink-400">· {Math.round((d.value / total) * 100)}%</span></span>
+            <span className="num font-semibold text-ink-900">{format(d.value)} <span className="font-normal text-ink-500">· {Math.round((d.value / total) * 100)}%</span></span>
           </div>
           <div className="h-2 rounded-full bg-ink-100">
             <div className={cn("h-2 rounded-full", d.color ?? "bg-brand-500")} style={{ width: `${(d.value / total) * 100}%` }} />

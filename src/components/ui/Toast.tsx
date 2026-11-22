@@ -32,15 +32,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-center gap-2 px-4 sm:inset-x-auto sm:right-4 sm:items-end" aria-live="polite">
         {items.map((t) => (
-          <div key={t.id} className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl bg-white p-4 shadow-pop ring-1 ring-ink-200">
+          <div key={t.id} className="ui-toast pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl bg-white p-4 shadow-pop ring-1 ring-ink-200/80">
             <span className={cn("mt-0.5", t.tone === "success" ? "text-emerald-600" : t.tone === "error" ? "text-rose-600" : "text-brand-600")}>
               {t.tone === "success" ? <LuCircleCheck className="size-5" /> : t.tone === "error" ? <LuCircleAlert className="size-5" /> : <LuInfo className="size-5" />}
             </span>
             <div className="flex-1">
-              <p className="text-sm font-medium text-ink-900">{t.title}</p>
-              {t.body && <p className="mt-0.5 text-sm text-ink-500">{t.body}</p>}
+              <p className="text-sm font-semibold text-ink-900">{t.title}</p>
+              {t.body && <p className="mt-0.5 text-sm leading-relaxed text-ink-600">{t.body}</p>}
             </div>
-            <button aria-label="Dismiss" onClick={() => setItems((s) => s.filter((x) => x.id !== t.id))} className="text-ink-400 hover:text-ink-700">
+            <button aria-label="Dismiss" onClick={() => setItems((s) => s.filter((x) => x.id !== t.id))} className="rounded-md p-0.5 text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-700">
               <LuX className="size-4" />
             </button>
           </div>
