@@ -473,7 +473,7 @@ export function PaymentModal({
                     <option value="">Auto detect</option><option value="MTN">MTN</option><option value="Telecel">Telecel</option><option value="AT">AirtelTigo</option>
                   </Select>
                 </div>
-                <Callout tone="info">When you complete the sale, we send a request to this number. The customer approves it on their phone.</Callout>
+                <Callout tone="info">When you complete the sale, Paystack sends a request to this number. The customer approves it on their phone.</Callout>
               </div>
             )}
             {(method === "card" || method === "bank") && <Input label="Reference" hint="Optional" value={ref} onChange={(e) => setRef(e.target.value)} />}

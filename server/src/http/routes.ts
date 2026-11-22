@@ -7,6 +7,7 @@ import { customersRoutes } from "../modules/customers/customers.routes.js";
 import { expensesRoutes } from "../modules/expenses/expenses.routes.js";
 import { inventoryRoutes } from "../modules/inventory/inventory.routes.js";
 import { notificationsRoutes } from "../modules/notifications/notifications.routes.js";
+import { paystackRoutes } from "../modules/payments/paystack.routes.js";
 import { peopleRoutes } from "../modules/people/people.routes.js";
 import { purchasingRoutes } from "../modules/purchasing/purchasing.routes.js";
 import { reportsRoutes } from "../modules/reports/reports.routes.js";
@@ -30,6 +31,7 @@ export const routes: Route[] = [
   ...businessRoutes,
   ...notificationsRoutes,
   ...reportsRoutes,
+  ...paystackRoutes,
 ];
 
 export const router = createRouter(routes);

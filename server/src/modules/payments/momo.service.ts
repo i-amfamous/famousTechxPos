@@ -7,6 +7,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { config } from "../../config.js";
+import { initializePaystackPayment } from "./paystack.service.js";
 
 export type MomoNetwork = "MTN" | "Telecel" | "AT" | "Unknown";
 
@@ -121,6 +122,18 @@ async function requestGeneric(label: string, provider: string, cfg: { baseUrl: s
 
 /** Sends one request-to-pay. Always resolves, so a provider outage never blocks a sale. */
 export async function requestMomoPayment(req: MomoPaymentRequest): Promise<MomoPaymentResult> {
+  // Paystack handles MTN, Telecel and AirtelTigo through one Ghana Mobile Money channel.
+  if (config.paystack.secretKey && (req.network === "MTN" || req.network === "Telecel" || req.network === "AT")) {
+    try {
+      const init = await initializePaystackPayment({ phone: req.phone, amount: req.amount, externalId: req.externalId });
+      return {
+        provider: "paystack", sent: true, reference: init.reference,
+        message: `Paystack sent a ${req.network} prompt to ${normalizePhone(req.phone)}. Ask the customer to approve it on their phone.`,
+      };
+    } catch {
+      return pending("paystack", "Paystack couldn't send the prompt right now. Payment recorded as pending; follow up with the customer.");
+    }
+  }
   if (req.network === "MTN") return requestMtn(req);
   if (req.network === "Telecel") return requestGeneric("Telecel Cash", "telecel", config.momo.telecel, req);
   if (req.network === "AT") return requestGeneric("AirtelTigo Money", "at", config.momo.at, req);

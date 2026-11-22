@@ -19,6 +19,12 @@ export const config = {
   /** Brevo REST API key (xkeysib-…). Preferred over SMTP: one credential, no relay port/IP issues. */
   brevoApiKey: env.BREVO_API_KEY ?? "",
   upcItemDbKey: env.UPCITEMDB_KEY ?? "",
+  /** Paystack Ghana Mobile Money: one account routes MTN MoMo, Telecel Cash and AirtelTigo. */
+  paystack: {
+    secretKey: env.PAYSTACK_SECRET_KEY ?? "",
+    publicKey: env.PAYSTACK_PUBLIC_KEY ?? "",
+    callbackUrl: env.PAYSTACK_CALLBACK_URL ?? "",
+  },
   /** Set to "false" to disable online barcode lookups. */
   barcodeOnline: (env.BARCODE_ONLINE ?? "true") !== "false",
   /** Mobile money request-to-pay providers. Empty credentials mean "record as pending" instead of failing checkout. */

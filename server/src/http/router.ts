@@ -24,6 +24,10 @@ export interface RequestContext {
   /** Device credential of a registered till, from `X-Terminal-Token`. */
   terminalToken?: string;
   userAgent?: string;
+  /** Exact JSON bytes, used to verify webhook signatures. */
+  rawBody?: Buffer;
+  /** Selected request headers needed by public webhook routes. */
+  headers?: Record<string, string | undefined>;
 }
 export interface SessionContext extends RequestContext { session: SessionInfo }
 export interface MemberContext extends SessionContext { actor: Actor }

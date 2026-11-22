@@ -18,7 +18,11 @@ export function createApp(db: Db) {
     allowedHeaders: ["Content-Type", "Authorization", "X-Terminal-Token"],
     maxAge: 86400,
   }));
-  app.use(express.json({ limit: "1mb" }));
+  // Keep the raw bytes: Paystack signs the exact body, not the parsed object.
+  app.use(express.json({
+    limit: "1mb",
+    verify: (req, _res, buf) => { (req as Request & { rawBody?: Buffer }).rawBody = buf; },
+  }));
 
   app.get("/health", async (_req, res) => {
     try { await db.all("SELECT 1 AS ok"); res.json({ ok: true, db: "up" }); }
@@ -39,6 +43,8 @@ export function createApp(db: Db) {
         token: auth?.startsWith("Bearer ") ? auth.slice(7).trim() : undefined,
         terminalToken: req.header("x-terminal-token") ?? undefined,
         userAgent: req.header("user-agent") ?? undefined,
+        rawBody: (req as Request & { rawBody?: Buffer }).rawBody,
+        headers: { "x-paystack-signature": req.header("x-paystack-signature") ?? undefined },
       }, req.ip ?? "unknown");
       res.setHeader("Cache-Control", "no-store");
       res.json(out);
