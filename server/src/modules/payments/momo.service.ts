@@ -35,6 +35,7 @@ export interface MomoPaymentRequest {
   phone: string;
   amount: number;
   externalId: string;
+  email?: string | null;
 }
 
 export interface MomoPaymentResult {
@@ -125,7 +126,7 @@ export async function requestMomoPayment(req: MomoPaymentRequest): Promise<MomoP
   // Paystack handles MTN, Telecel and AirtelTigo through one Ghana Mobile Money channel.
   if (config.paystack.secretKey && (req.network === "MTN" || req.network === "Telecel" || req.network === "AT")) {
     try {
-      const init = await initializePaystackPayment({ phone: req.phone, amount: req.amount, externalId: req.externalId });
+      const init = await initializePaystackPayment({ phone: req.phone, amount: req.amount, externalId: req.externalId, email: req.email });
       return {
         provider: "paystack", sent: true, reference: init.reference,
         message: `Paystack sent a ${req.network} prompt to ${normalizePhone(req.phone)}. Ask the customer to approve it on their phone.`,

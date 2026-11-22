@@ -71,13 +71,18 @@ async function resolveCustomerForSale(tx: Db, actor: Actor, p: CheckoutInput, pa
 async function dispatchMomo(db: Db, orgId: string, saleId: string) {
   const pays = await db.all("SELECT id, amount, provider_reference FROM payments WHERE sale_id = ? AND method = 'momo' ORDER BY created_at", [saleId]);
   if (!pays.length) return;
+  // Paystack sends its receipt here; fall back to a generated address with a valid domain.
+  const sale = await db.all("SELECT customer_id FROM sales WHERE id = ?", [saleId]);
+  const customerId = sale[0]?.customer_id;
+  const customer = customerId ? await db.all("SELECT email FROM customers WHERE id = ?", [customerId]) : [];
+  const email = customer[0]?.email ?? null;
   const existing = await db.all("SELECT payment_id FROM momo_requests WHERE sale_id = ?", [saleId]);
   const done = new Set(existing.map((r) => String(r.payment_id)));
   for (const pay of pays) {
     if (done.has(String(pay.id))) continue;
     const [rawNetwork, phone] = String(pay.provider_reference ?? "").split(" ");
     const network = (["MTN", "Telecel", "AT"].includes(rawNetwork) ? rawNetwork : detectNetwork(phone)) as MomoNetwork;
-    const result = await requestMomoPayment({ network, phone: phone ?? "", amount: n(pay.amount), externalId: saleId });
+    const result = await requestMomoPayment({ network, phone: phone ?? "", amount: n(pay.amount), externalId: saleId, email });
     const status = result.sent ? "sent" : "pending";
     await db.run(`INSERT INTO momo_requests (id, organization_id, sale_id, payment_id, network, phone, amount, provider, provider_reference, status, message, created_at)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, [uuid(), orgId, saleId, pay.id, network, phone ?? "", money(n(pay.amount)), result.provider, result.reference || null, status, result.message, nowSql()]);

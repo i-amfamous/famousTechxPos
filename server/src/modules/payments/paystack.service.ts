@@ -47,7 +47,8 @@ export async function initializePaystackPayment(input: { phone: string; amount: 
     method: "POST",
     headers: { Authorization: `Bearer ${config.paystack.secretKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      email: input.email || `${phone}@momo.pos`,
+      // Paystack validates the address; use a real domain when the till didn't capture one.
+      email: input.email || `${phone}@famoustexhpos.com`,
       amount: pesewas,
       currency: "GHS",
       reference,
