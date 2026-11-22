@@ -62,56 +62,62 @@ export function PinPad({
   return (
     <div className="flex flex-col items-center">
       <div
-        className={cn(
-          "flex h-14 w-full items-center justify-center rounded-2xl bg-ink-50 ring-1 ring-inset ring-ink-200 transition-colors",
-          busy && "pin-dots-busy",
-          error && "pin-dots-error bg-rose-50 ring-rose-200",
-        )}
+        className={cn("flex items-center justify-center gap-3 sm:gap-4", error && "pin-dots-error")}
         aria-label={`${pin.length} of ${length} digits entered`}
       >
         {busy ? (
-          <span className="flex items-center gap-2 text-sm font-medium text-brand-700">
-            <Spinner className="size-5" /> Checking PIN…
+          <span className="pin-dots-busy inline-flex h-11 items-center gap-2 rounded-full bg-brand-50 px-4 text-sm font-medium text-brand-700 ring-1 ring-brand-200">
+            <Spinner className="size-4" /> Checking PIN…
           </span>
         ) : (
-          Array.from({ length }).map((_, i) => (
-            <span
-              key={i}
-              className={cn(
-                "size-4 rounded-full transition-all duration-200",
-                i < pin.length && "scale-110 bg-brand-600 shadow-[0_0_0_4px_rgba(79,70,229,0.12)]",
-                i >= pin.length && "bg-ink-200",
-                error && "bg-rose-400 shadow-[0_0_0_4px_rgba(251,113,133,0.14)]",
-              )}
-            />
-          ))
+          Array.from({ length }).map((_, i) => {
+            const filled = i < pin.length;
+            return (
+              <span
+                key={i}
+                className={cn(
+                  "relative flex size-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-inset ring-ink-200 transition-all duration-200 sm:size-11",
+                  filled && "bg-brand-50/60 ring-brand-300 shadow-[0_0_0_3px_rgba(79,70,229,0.08)]",
+                  error && "bg-rose-50 ring-rose-300 shadow-[0_0_0_3px_rgba(251,113,133,0.1)]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "rounded-full transition-all duration-200",
+                    filled ? "pin-dot-filled size-2.5 bg-brand-600" : "size-1.5 bg-ink-300",
+                    error && "bg-rose-500",
+                  )}
+                />
+              </span>
+            );
+          })
         )}
       </div>
 
-      <div className="mt-3 flex h-5 items-center justify-center gap-1.5 text-xs" aria-live="polite">
+      <div className="mt-4 flex min-h-5 items-center justify-center gap-1.5 text-xs" aria-live="polite">
         {error ? (
           <>
             <LuCircleAlert className="size-3.5 shrink-0 text-rose-600" />
             <span role="alert" className="font-medium text-rose-600">{error}</span>
           </>
         ) : (
-          <span className="inline-flex items-center gap-1.5 text-ink-400">
-            <LuLockKeyhole className="size-3.5" /> {disabled ? "PIN locked - ask a manager" : "Enter your 4-digit PIN"}
+          <span className="inline-flex items-center gap-1.5 text-ink-500">
+            <LuLockKeyhole className="size-3.5" /> {disabled ? "PIN locked - ask a manager" : `Enter your ${length}-digit PIN`}
           </span>
         )}
       </div>
 
-      <div className="mt-3 grid w-full max-w-[318px] grid-cols-3 gap-2.5 sm:gap-3">
+      <div className="mt-5 grid w-full max-w-[300px] grid-cols-3 gap-3 sm:gap-4">
         {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
           <Key key={d} onClick={() => press(d)} disabled={disabled || busy}>{d}</Key>
         ))}
-        <span />
+        <span className="size-[62px] sm:size-[70px]" aria-hidden />
         <Key onClick={() => press("0")} disabled={disabled || busy}>0</Key>
         <Key onClick={back} label="Delete digit" subtle disabled={disabled || busy}>
-          <LuDelete className="size-6" />
+          <LuDelete className="size-5" />
         </Key>
       </div>
-      <p className="mt-4 text-[11px] text-ink-400">Tip: you can type on your keyboard too.</p>
+      <p className="mt-5 text-[11px] text-ink-500">Tip: you can type on your keyboard too.</p>
     </div>
   );
 }
@@ -124,11 +130,14 @@ function Key({ children, onClick, label, subtle, disabled }: { children: ReactNo
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "pin-key num flex size-16 items-center justify-center rounded-2xl text-2xl font-semibold transition-all duration-150 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 sm:size-[68px]",
-        subtle ? "bg-transparent text-ink-500 hover:bg-white hover:text-ink-900" : "bg-white text-ink-900 ring-1 ring-ink-200 hover:-translate-y-0.5 hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-300",
+        "pin-key num flex size-[62px] items-center justify-center rounded-2xl border text-xl font-semibold sm:size-[70px]",
+        subtle
+          ? "pin-key-subtle border-brand-200 text-brand-700 hover:border-brand-300 hover:text-brand-800"
+          : "border-ink-200 text-ink-900 hover:border-brand-300 hover:text-brand-700",
+        disabled && "cursor-not-allowed opacity-40",
       )}
     >
-      {children}
+      <span className="relative z-10 inline-flex items-center justify-center">{children}</span>
     </button>
   );
 }
