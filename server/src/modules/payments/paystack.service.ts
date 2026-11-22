@@ -8,6 +8,7 @@
  */
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { config } from "../../config.js";
+import { bad } from "../../core/errors.js";
 
 const API = "https://api.paystack.co";
 const MTN = ["024", "025", "026", "054", "059"];
@@ -64,6 +65,58 @@ export async function initializePaystackPayment(input: { phone: string; amount: 
   return {
     reference: String(json.data?.reference ?? reference),
     authorizationUrl: String(json.data?.authorization_url ?? ""),
+  };
+}
+
+export interface PaystackInlineInit {
+  reference: string;
+  publicKey: string;
+  email: string;
+  /** Cedis, so the browser can convert once with Math.round(amount * 100). */
+  amount: number;
+}
+
+/**
+ * Starts a Paystack Inline transaction. The browser gets only the public key and the reference;
+ * the dialog collects the customer's contact and mobile money number. No `mobile_number` is sent
+ * here, so Paystack does not fire a request-to-pay before the customer confirms in the dialog.
+ */
+export async function initializePaystackInline(input: { amount: number; email?: string | null; phone?: string | null }): Promise<PaystackInlineInit> {
+  if (!config.paystack.secretKey || !config.paystack.publicKey)
+    throw bad("paystack_not_configured", "Paystack isn't configured on this server.");
+
+  const pesewas = Math.round(Number(input.amount) * 100);
+  if (!(pesewas > 0)) throw bad("invalid_amount", "Enter an amount above zero.");
+
+  const phone = localPhone(String(input.phone ?? ""));
+  const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(input.email ?? "").trim())
+    ? String(input.email).trim()
+    : phone
+      ? `${phone}@famoustexhpos.com`
+      : `sale-${Date.now()}@famoustexhpos.com`;
+
+  const reference = `FTX-${randomUUID()}`;
+  const res = await fetch(`${API}/transaction/initialize`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${config.paystack.secretKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      amount: pesewas,
+      currency: "GHS",
+      reference,
+      channels: ["mobile_money"],
+      // Inline calls back the browser and we verify server-side. A redirect URL here would hijack the iframe.
+      metadata: { source: "Famous TechX POS", integration: "inline", ...(phone ? { customer_phone: phone } : {}) },
+    }),
+    signal: AbortSignal.timeout(9000),
+  });
+  const json = await res.json() as { status?: boolean; message?: string; data?: { reference?: string } };
+  if (!res.ok || json?.status !== true) throw bad("paystack_init_failed", json?.message ?? "Paystack couldn't start the payment.");
+  return {
+    reference: String(json.data?.reference ?? reference),
+    publicKey: config.paystack.publicKey,
+    email,
+    amount: pesewas / 100,
   };
 }
 

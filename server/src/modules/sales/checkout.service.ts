@@ -15,6 +15,10 @@ import { applyStock } from "../inventory/stock-ledger.js";
 import { PAYMENT_METHODS, saleReceipt } from "./sales.service.js";
 import { myOpenShift } from "../shifts/shifts.service.js";
 import { detectNetwork, normalizePhone, requestMomoPayment, type MomoNetwork } from "../payments/momo.service.js";
+import { verifyPaystackTransaction } from "../payments/paystack.service.js";
+
+/** Marks a MoMo tender paid through the Paystack Inline dialog. Parsed again when the sale is saved. */
+const PAYSTACK_REF = "Paystack ";
 
 export interface CheckoutInput {
   terminalId: string; customerId?: string | null; idempotencyKey: string; cartDiscount?: number; discountReason?: string | null;
@@ -22,16 +26,34 @@ export interface CheckoutInput {
   /** Customer details captured at the till. A sale always records them, creating a customer if needed. */
   customer?: { name?: string | null; phone?: string | null; email?: string | null } | null;
   lines: { productId: string; variantId?: string | null; quantity: number; discount?: number; unitPrice?: number | null }[];
-  payments: { method: string; amount: number; reference?: string | null; phone?: string | null; network?: string | null }[];
+  payments: { method: string; amount: number; reference?: string | null; phone?: string | null; network?: string | null; paystackReference?: string | null }[];
 }
 
 /** MoMo payments carry the customer number; we store it as `NETWORK phone` for the request and the receipt. */
 function paymentReference(pay: CheckoutInput["payments"][number]): string | null {
   if (pay.method !== "momo") return nullIfEmpty(pay.reference);
+  // A Paystack Inline reference is already paid. Keep it on the payment for the receipt and the audit row.
+  if (pay.paystackReference) return `${PAYSTACK_REF}${pay.paystackReference}`;
   const phone = normalizePhone(pay.phone ?? pay.reference);
   if (!/^0\d{9}$/.test(phone)) throw bad("invalid_momo_number", "Enter a valid customer MoMo number.");
   const network = pay.network && ["MTN", "Telecel", "AT"].includes(pay.network) ? pay.network as MomoNetwork : detectNetwork(phone);
   return `${network} ${phone}`;
+}
+
+/**
+ * An Inline dialog can call back before Paystack's status has settled everywhere. Never save a sale
+ * on a reference that the server cannot confirm, and never trust the amount the browser reports.
+ */
+async function verifyInlinePayments(p: CheckoutInput): Promise<CheckoutInput> {
+  const payments = (p.payments ?? []).map((pay) => ({ ...pay }));
+  for (const pay of payments) {
+    if (pay.method !== "momo" || !pay.paystackReference) continue;
+    const result = await verifyPaystackTransaction(pay.paystackReference);
+    if (!result.success) throw bad("paystack_not_paid", "Paystack hasn't confirmed this payment yet. Wait for the dialog to finish and try again.");
+    if (Math.abs(result.pesewas - cents(pay.amount)) > 1)
+      throw bad("paystack_amount_mismatch", "The amount Paystack confirmed doesn't match this payment.");
+  }
+  return { ...p, payments };
 }
 
 type StoredPayment = CheckoutInput["payments"][number] & { storedRef: string | null };
@@ -49,26 +71,31 @@ async function resolveCustomerForSale(tx: Db, actor: Actor, p: CheckoutInput, pa
   }
 
   const momo = payments.find((pay) => pay.method === "momo");
-  const raw = p.customer?.phone || momo?.phone || (momo?.storedRef ?? "").split(" ").pop() || "";
+  const storedPhone = momo?.storedRef?.startsWith(PAYSTACK_REF) ? "" : (momo?.storedRef ?? "").split(" ").pop() ?? "";
+  const raw = p.customer?.phone || momo?.phone || storedPhone || "";
   const phone = normalizePhone(raw);
   const validPhone = /^0\d{9}$/.test(phone) ? phone : "";
   const name = clean(p.customer?.name ?? "");
   const email = nullIfEmpty(p.customer?.email);
-  if (!validPhone && !name) return null;
+  if (!validPhone && !name && !email) return null;
 
   if (validPhone) {
     const existing = await one(tx, "SELECT id FROM customers WHERE organization_id = ? AND phone = ? ORDER BY created_at LIMIT 1", [actor.orgId, validPhone]);
     if (existing) return String(existing.id);
+  } else if (email) {
+    const existing = await one(tx, "SELECT id FROM customers WHERE organization_id = ? AND email = ? ORDER BY created_at LIMIT 1", [actor.orgId, email]);
+    if (existing) return String(existing.id);
   }
 
   const id = uuid();
+  const label = name || (email ? email.split("@")[0] : `Customer ${validPhone}`);
   await tx.run(`INSERT INTO customers (id, organization_id, name, phone, email, address, notes, status, total_spend, visits, created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)`, [id, actor.orgId, name || `Customer ${validPhone}`, validPhone || null, email, null, null, "active", 0, 0, nowSql()]);
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)`, [id, actor.orgId, label, validPhone || null, email, null, null, "active", 0, 0, nowSql()]);
   return id;
 }
 
-/** Sends request-to-pay once per MoMo tender after the sale is saved. Provider errors never fail checkout. */
-async function dispatchMomo(db: Db, orgId: string, saleId: string) {
+/** Records MoMo tenders after the sale is saved. Inline payments are already verified, so they are never re-sent. */
+async function dispatchMomo(db: Db, orgId: string, saleId: string, inputPayments: CheckoutInput["payments"] = []) {
   const pays = await db.all("SELECT id, amount, provider_reference FROM payments WHERE sale_id = ? AND method = 'momo' ORDER BY created_at", [saleId]);
   if (!pays.length) return;
   // Paystack sends its receipt here; fall back to a generated address with a valid domain.
@@ -80,7 +107,19 @@ async function dispatchMomo(db: Db, orgId: string, saleId: string) {
   const done = new Set(existing.map((r) => String(r.payment_id)));
   for (const pay of pays) {
     if (done.has(String(pay.id))) continue;
-    const [rawNetwork, phone] = String(pay.provider_reference ?? "").split(" ");
+    const stored = String(pay.provider_reference ?? "");
+    if (stored.startsWith(PAYSTACK_REF)) {
+      const reference = stored.slice(PAYSTACK_REF.length);
+      const line = inputPayments.find((x) => x.paystackReference === reference || x.reference === stored);
+      const phone = line ? normalizePhone(line.phone ?? "") : "";
+      const rawNetwork = line?.network ?? detectNetwork(phone);
+      const network = (["MTN", "Telecel", "AT"].includes(rawNetwork) ? rawNetwork : "Unknown") as MomoNetwork;
+      await db.run(`INSERT INTO momo_requests (id, organization_id, sale_id, payment_id, network, phone, amount, provider, provider_reference, status, message, created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, [uuid(), orgId, saleId, pay.id, network, phone, money(n(pay.amount)), "paystack", reference, "paid", "Paid in the Paystack dialog.", nowSql()]);
+      await db.run("UPDATE payments SET status = 'paid' WHERE id = ? AND organization_id = ?", [pay.id, orgId]);
+      continue;
+    }
+    const [rawNetwork, phone] = stored.split(" ");
     const network = (["MTN", "Telecel", "AT"].includes(rawNetwork) ? rawNetwork : detectNetwork(phone)) as MomoNetwork;
     const result = await requestMomoPayment({ network, phone: phone ?? "", amount: n(pay.amount), externalId: saleId, email });
     const status = result.sent ? "sent" : "pending";
@@ -97,18 +136,19 @@ export async function checkout(db: Db, actor: Actor, p: CheckoutInput) {
   // Scope the key to the cashier so two devices generating the same key can't steal each other's receipt.
   const key = `${actor.memberId}:${clientKey}`;
 
-  // Same key → same sale (a retried request never charges twice).
+  // Same key → same sale (a retried request never charges twice, and needs no re-verification).
   const prior = await one(db, "SELECT id FROM sales WHERE organization_id = ? AND idempotency_key = ?", [actor.orgId, key]);
-  if (prior) { await dispatchMomo(db, actor.orgId, String(prior.id)); return saleReceipt(db, actor, String(prior.id)); }
+  if (prior) { await dispatchMomo(db, actor.orgId, String(prior.id), p.payments); return saleReceipt(db, actor, String(prior.id)); }
 
+  const input = await verifyInlinePayments(p);
   try {
-    const saleId = await db.tx((tx) => checkoutTx(tx, actor, p, key));
-    await dispatchMomo(db, actor.orgId, saleId);
+    const saleId = await db.tx((tx) => checkoutTx(tx, actor, input, key));
+    await dispatchMomo(db, actor.orgId, saleId, input.payments);
     return saleReceipt(db, actor, saleId);
   } catch (e) {
     if (isDuplicateKey(e)) {
       const again = await one(db, "SELECT id FROM sales WHERE organization_id = ? AND idempotency_key = ?", [actor.orgId, key]);
-      if (again) { await dispatchMomo(db, actor.orgId, String(again.id)); return saleReceipt(db, actor, String(again.id)); }
+      if (again) { await dispatchMomo(db, actor.orgId, String(again.id), input.payments); return saleReceipt(db, actor, String(again.id)); }
     }
     throw e;
   }
@@ -237,7 +277,7 @@ async function checkoutTx(tx: Db, actor: Actor, p: CheckoutInput, key: string): 
   for (const s of agg.values())
     await applyStock(tx, { orgId: actor.orgId, branchId: t.branch_id, productId: s.productId, variantId: s.variantId, delta: -s.qty, type: "sale", refType: "sale", refId: saleId, actorId: actor.memberId, allowNegative: !st.block_negative_stock, product: productMap.get(s.productId) });
 
-  const payRows: Param[][] = payments.map((pay) => [uuid(), actor.orgId, saleId, pay.method, money(cents(pay.amount)), "recorded", pay.storedRef, actor.memberId, now]);
+  const payRows: Param[][] = payments.map((pay) => [uuid(), actor.orgId, saleId, pay.method, money(cents(pay.amount)), pay.paystackReference ? "paid" : "recorded", pay.storedRef, actor.memberId, now]);
   for (let i = 0; i < payRows.length; i += 100) {
     const chunk = payRows.slice(i, i + 100);
     await tx.run(`INSERT INTO payments (id, organization_id, sale_id, method, amount, status, provider_reference, recorded_by, created_at)

@@ -5,10 +5,12 @@ import {
 import { useSession } from "@/app/session";
 import { actions, useApprovers, useCustomers, useEmployees, useHeldCarts, useShiftSummary } from "@/services/api";
 import {
-  Avatar, Badge, Button, Callout, ConfirmDialog, DL, Drawer, EmptyState, Input, Modal, PinPad, SearchInput, Segmented, Select, Textarea, useToast,
+  Avatar, Badge, Button, Callout, ConfirmDialog, DL, Drawer, EmptyState, Input, Modal, PinPad, SearchInput, Segmented, Textarea, useToast,
 } from "@/components/ui";
 import { cn, formatMoney, formatTime, methodLabel, timeAgo } from "@/lib/format";
-import { detectNetwork, formatPhone, isValidGhanaPhone, networkLabel, normalizePhone, type MomoNetwork } from "@/lib/momo";
+import { DEMO } from "@/lib/http";
+import { openPaystackDialog } from "@/lib/paystack";
+import { detectNetwork, formatPhone, normalizePhone } from "@/lib/momo";
 import type { CartLine, Customer, HeldCart, PaymentLine, PaymentMethod, SaleReceipt } from "@/types";
 import { Receipt } from "./Receipt";
 
@@ -342,8 +344,9 @@ export function PaymentModal({
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState("");
   const [ref, setRef] = useState("");
-  const [phone, setPhone] = useState("");
-  const [networkOverride, setNetworkOverride] = useState<MomoNetwork | "">("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [payerEmail, setPayerEmail] = useState("");
+  const [paystackBusy, setPaystackBusy] = useState(false);
   const [tenders, setTenders] = useState<PaymentLine[]>([]);
   const [stage, setStage] = useState<"pay" | "processing" | "done" | "error">("pay");
   const [receipt, setReceipt] = useState<SaleReceipt | null>(null);
@@ -351,12 +354,11 @@ export function PaymentModal({
   // The key belongs to the cart (owned by PosPage), so closing/reopening this modal can't create a second sale.
 
   useEffect(() => {
-    if (open) { setTenders([]); setStage("pay"); setMethod("cash"); setAmount(""); setRef(""); setPhone(customer?.phone ?? ""); setNetworkOverride(""); setReceipt(null); setError(""); }
+    if (open) {
+      setTenders([]); setStage("pay"); setMethod("cash"); setAmount(""); setRef("");
+      setContactEmail(customer?.email ?? ""); setPayerEmail(""); setPaystackBusy(false); setReceipt(null); setError("");
+    }
   }, [open, idempotencyKey]);
-
-  const detected = detectNetwork(phone);
-  const network: MomoNetwork = networkOverride || detected;
-  const phoneValid = isValidGhanaPhone(phone) && network !== "Unknown";
 
   const paid = tenders.reduce((s, t) => s + t.amount, 0);
   const remaining = Math.max(0, +(total - paid).toFixed(2));
@@ -364,29 +366,14 @@ export function PaymentModal({
   // Only cash can be over-tendered, so any overpayment is change due.
   const cashChange = paid > total ? +(paid - total).toFixed(2) : 0;
 
-  const addTender = () => {
-    if (entered <= 0) return;
-    if (method !== "cash" && entered > remaining) return;
-    if (method === "momo") {
-      if (!phoneValid) return;
-      const normalized = normalizePhone(phone);
-      setTenders((t) => [...t, { method, amount: +entered.toFixed(2), reference: normalized, phone: normalized, network }]);
-      setAmount("");
-      setPhone("");
-      setNetworkOverride("");
-      return;
-    }
-    setTenders((t) => [...t, { method, amount: +entered.toFixed(2), reference: ref || undefined }]);
-    setAmount("");
-    setRef("");
-  };
-
-  const complete = async () => {
+  const complete = async (payments = tenders) => {
     if (!terminal) return;
     setStage("processing");
     try {
-      const r = await actions.checkout({ terminalId: terminal.id, lines, payments: tenders, customerId: customer?.id,
-        customer: customer ? { name: customer.name, phone: customer.phone, email: customer.email } : undefined,
+      const r = await actions.checkout({ terminalId: terminal.id, lines, payments, customerId: customer?.id,
+        customer: customer
+          ? { name: customer.name, phone: customer.phone, email: payerEmail || contactEmail || customer.email }
+          : payerEmail ? { email: payerEmail } : undefined,
         cartDiscount, discountReason, discountApprovalId, priceApprovalId, idempotencyKey });
       setReceipt({ ...r, servedBy: r.servedBy || posUser?.displayName || "", terminal: r.terminal || terminal.name, branch: r.branch || branch.name, customer: r.customer ?? customer?.name,
         business: r.business ?? (business ? { name: business.name, phone: business.phone, tin: business.tin } : undefined) });
@@ -397,13 +384,71 @@ export function PaymentModal({
     }
   };
 
+  /**
+   * MoMo now starts in Paystack: reserve a reference on the server, open Inline so the customer
+   * supplies their contact and MoMo number, then verify and complete the sale from the callback.
+   */
+  const startPaystack = async (payAmount: number) => {
+    if (!terminal || paystackBusy || !(payAmount > 0)) return;
+    setError("");
+    setPaystackBusy(true);
+    try {
+      const init = await actions.initializePaystack({ amount: payAmount, email: contactEmail.trim() || customer?.email || "", phone: customer?.phone || "" });
+      const finish = (responseReference: string) => {
+        const reference = responseReference || init.reference;
+        const phone = normalizePhone(customer?.phone ?? "");
+        const network = detectNetwork(phone);
+        const next: PaymentLine = {
+          method: "momo", amount: init.amount, reference: `Paystack ${reference}`,
+          ...(phone ? { phone } : {}), ...(network !== "Unknown" ? { network } : {}),
+          paystackReference: reference,
+        };
+        const updated = [...tenders, next];
+        setPayerEmail(init.email);
+        setTenders(updated);
+        setPaystackBusy(false);
+        if (updated.reduce((sum, t) => sum + t.amount, 0) >= total - 0.001) void complete(updated);
+      };
+
+      if (DEMO) { finish(init.reference); return; }
+
+      await openPaystackDialog({
+        key: init.publicKey,
+        email: init.email,
+        amount: Math.round(init.amount * 100),
+        currency: "GHS",
+        ref: init.reference,
+        channels: ["mobile_money"],
+        metadata: { custom_fields: [{ display_name: "Receipt", variable_name: "receipt", value: idempotencyKey }] },
+        callback: (response) => finish(String(response?.reference ?? init.reference)),
+        onClose: () => setPaystackBusy(false),
+      });
+    } catch (e) {
+      setPaystackBusy(false);
+      setError((e as Error).message);
+      setStage("error");
+    }
+  };
+
+  const chooseMethod = (next: PaymentMethod) => {
+    setMethod(next);
+    if (next === "momo" && remaining > 0) void startPaystack(remaining);
+  };
+
+  const addTender = () => {
+    if (entered <= 0 || entered > remaining || method === "momo") return;
+    setTenders((t) => [...t, { method, amount: +entered.toFixed(2), reference: ref || undefined }]);
+    setAmount("");
+    setRef("");
+  };
+
   const covered = paid >= total && total >= 0 && (tenders.length > 0 || total === 0);
 
   return (
-    <Modal open={open} onClose={stage === "processing" ? () => {} : stage === "done" ? onComplete : onClose} size="lg" dismissible={stage !== "processing"} title={stage === "done" ? undefined : "Take payment"}>
+    <Modal open={open} onClose={stage === "processing" || paystackBusy ? () => {} : stage === "done" ? onComplete : onClose} size="lg" dismissible={stage !== "processing" && !paystackBusy} title={stage === "done" ? undefined : "Take payment"}>
       {stage === "done" && receipt ? (
-        <div className="grid gap-6 sm:grid-cols-[1fr_auto]">
-          <div className="flex flex-col items-center justify-center text-center">
+        <div className="grid justify-items-center gap-6 py-2 lg:grid-cols-[1fr_auto]">
+          <div className="flex w-full flex-col items-center justify-center text-center">
             <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><LuCircleCheck className="size-9" /></div>
             <h2 className="mt-4 text-2xl font-semibold text-ink-900">Sale complete</h2>
             <p className="text-sm text-ink-500">Receipt {receipt.receiptNumber}</p>
@@ -423,14 +468,33 @@ export function PaymentModal({
               <Button size="lg" variant="secondary" onClick={onComplete} autoFocus>New sale</Button>
             </div>
           </div>
-          <Receipt data={receipt} className="print-area hidden sm:block print:block" />
+          <div className="receipt-printer" aria-label="Printing receipt">
+            <div className="printer-body print:hidden">
+              <span className="printer-led" />
+              <span className="printer-label">Famous TechX · Thermal printer</span>
+              <span className="printer-head" />
+            </div>
+            <div className="printer-slot print:hidden" />
+            <div className="receipt-output">
+              <Receipt data={receipt} className="print-area" />
+              <div className="receipt-tear print:hidden" aria-hidden />
+            </div>
+          </div>
         </div>
       ) : stage === "error" ? (
         <div className="space-y-4 text-center">
           <Callout tone="danger" title="Checkout didn't go through">{error} Your cart is still here. Retrying is safe - if the sale was saved, the same receipt is returned instead of charging again.</Callout>
           <div className="flex justify-center gap-2">
             <Button variant="secondary" onClick={onClose}>Back to cart</Button>
-            <Button onClick={complete}>Retry</Button>
+            <Button onClick={() => void complete()}>Retry</Button>
+          </div>
+        </div>
+      ) : stage === "processing" ? (
+        <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 text-center">
+          <div className="size-14 animate-spin rounded-full border-4 border-brand-100 border-t-brand-600" />
+          <div>
+            <h2 className="text-lg font-semibold text-ink-900">Completing your sale</h2>
+            <p className="mt-1 text-sm text-ink-500">Saving the payment and printing your receipt.</p>
           </div>
         </div>
       ) : (
@@ -440,23 +504,29 @@ export function PaymentModal({
               {methods.map((m) => (
                 <button
                   key={m.value}
-                  onClick={() => setMethod(m.value)}
+                  onClick={() => chooseMethod(m.value)}
                   className={cn("flex flex-col items-center gap-1 rounded-xl py-3 text-sm font-medium ring-1 transition-colors", method === m.value ? "bg-brand-600 text-white ring-brand-600" : "text-ink-700 ring-ink-200 hover:bg-ink-50")}
                 >
                   {m.icon}{m.label}
                 </button>
               ))}
             </div>
-            <Input
-              label={`Amount (${methodLabel[method]})`}
-              prefix="GH₵"
-              inputMode="decimal"
-              placeholder={remaining.toFixed(2)}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTender(); } }}
-              hint={method !== "cash" ? "Can't be more than the remaining balance." : "Enter cash received - change is calculated."}
-            />
+            {method === "momo" ? (
+              <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800 ring-1 ring-brand-100">
+                Paystack will ask the customer for <span className="num font-bold">{formatMoney(remaining)}</span>.
+              </div>
+            ) : (
+              <Input
+                label={`Amount (${methodLabel[method]})`}
+                prefix="GH₵"
+                inputMode="decimal"
+                placeholder={remaining.toFixed(2)}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTender(); } }}
+                hint={method !== "cash" ? "Can't be more than the remaining balance." : "Enter cash received - change is calculated."}
+              />
+            )}
             {method === "cash" && (
               <div className="flex flex-wrap gap-2">
                 {[remaining, ...[...new Set([10, 50, 100, 500, 1000].map((m) => Math.ceil(remaining / m) * m))].filter((v) => v > remaining)].slice(0, 5).map((v, i) => (
@@ -466,23 +536,30 @@ export function PaymentModal({
             )}
             {method === "momo" && (
               <div className="space-y-3">
-                <Input label="Customer MoMo number" required inputMode="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setNetworkOverride(""); }} placeholder="024 123 4567" hint="We detect the network from the number" error={phone && !isValidGhanaPhone(phone) ? "Enter a valid Ghana phone number" : undefined} />
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone={network === "Unknown" ? "warning" : "success"}>{network === "Unknown" ? "Network not recognised" : `${networkLabel(network)} detected`}</Badge>
-                  <Select aria-label="Override network" className="w-36" value={networkOverride} onChange={(e) => setNetworkOverride(e.target.value as MomoNetwork | "")}>
-                    <option value="">Auto detect</option><option value="MTN">MTN</option><option value="Telecel">Telecel</option><option value="AT">AirtelTigo</option>
-                  </Select>
-                </div>
-                <Callout tone="info">When you complete the sale, Paystack sends a request to this number. The customer approves it on their phone.</Callout>
+                <Input
+                  label="Email for the receipt"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  placeholder={customer?.email || "customer@example.com"}
+                  hint="Paystack shows this in its dialog. The customer can change it there."
+                />
+                <Callout tone="info" icon={<LuSmartphone className="size-5" />}>
+                  Paystack asks for the customer's mobile money number and email, then confirms the payment. MTN, Telecel and AirtelTigo all work. The receipt prints automatically.
+                </Callout>
+                <Button block size="lg" variant="checkout" icon={<LuSmartphone className="size-5" />} disabled={paystackBusy || remaining <= 0} loading={paystackBusy} onClick={() => void startPaystack(remaining)}>
+                  {paystackBusy ? "Opening Paystack..." : `Pay ${formatMoney(remaining)} with Paystack`}
+                </Button>
               </div>
             )}
             {(method === "card" || method === "bank") && <Input label="Reference" hint="Optional" value={ref} onChange={(e) => setRef(e.target.value)} />}
             {method !== "cash" && method !== "momo" && (
               <Callout tone="info">Recorded manually. Confirm you've seen the payment before adding it - it isn't verified electronically.</Callout>
             )}
-            <Button block variant="outline" icon={<LuPlus className="size-4" />} disabled={entered <= 0 || (method !== "cash" && entered > remaining) || remaining === 0 || (method === "momo" && !phoneValid)} onClick={addTender}>
-              Add {formatMoney(entered)} {methodLabel[method]}
-            </Button>
+            {method !== "momo" && (
+              <Button block variant="outline" icon={<LuPlus className="size-4" />} disabled={entered <= 0 || (method !== "cash" && entered > remaining) || remaining === 0} onClick={addTender}>
+                Add {formatMoney(entered)} {methodLabel[method]}
+              </Button>
+            )}
           </div>
 
           <div className="flex flex-col rounded-xl bg-ink-50 p-4 ring-1 ring-ink-200">
@@ -493,7 +570,7 @@ export function PaymentModal({
                 <div key={i} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-ink-200">
                   <div>
                     <p className="font-medium">{methodLabel[t.method]}</p>
-                    {t.reference && <p className="text-xs text-ink-500">{t.method === "momo" ? `${t.network ?? detectNetwork(t.reference)} · ${formatPhone(t.reference)}` : t.reference}</p>}
+                    {t.reference && <p className="text-xs text-ink-500">{t.paystackReference ? `Paystack · ${t.paystackReference.slice(-8)}` : t.method === "momo" ? `${t.network ?? detectNetwork(t.reference)} · ${formatPhone(t.reference)}` : t.reference}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="num">{formatMoney(t.amount)}</span>
@@ -510,7 +587,7 @@ export function PaymentModal({
                 <span className="num">{formatMoney(remaining > 0 ? remaining : cashChange)}</span>
               </div>
             </div>
-            <Button size="lg" variant="checkout" className="mt-4" disabled={!covered} loading={stage === "processing"} onClick={complete}>
+            <Button size="lg" variant="checkout" className="mt-4" disabled={!covered} onClick={() => void complete()}>
               Complete sale
             </Button>
           </div>

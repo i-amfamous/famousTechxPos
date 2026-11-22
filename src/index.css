@@ -57,21 +57,84 @@
   scrollbar-width: thin;
 }
 
-/* Receipt feed animation: the paper slides out of the printer, line by line. */
-@keyframes receipt-feed {
-  0% { clip-path: inset(0 0 100% 0); transform: translateY(-10px) scaleY(.98); }
-  100% { clip-path: inset(0 0 0 0); transform: translateY(0) scaleY(1); }
+/* Receipt printing: a thermal printer feeds the paper out of its slot, then it tears off. */
+@keyframes printer-feed {
+  0% { clip-path: inset(0 0 100% 0); transform: translateY(-16px); }
+  72% { clip-path: inset(0 0 0 0); transform: translateY(5px); }
+  100% { clip-path: inset(0 0 0 0); transform: translateY(0); }
 }
-@keyframes receipt-scan {
+@keyframes printer-scan {
   0% { top: 0; opacity: 0; }
-  18% { opacity: .85; }
+  12% { opacity: .85; }
   100% { top: 100%; opacity: 0; }
 }
-.receipt-paper {
-  transform-origin: top center;
-  animation: receipt-feed 1.15s cubic-bezier(.16, .84, .3, 1) both;
+@keyframes printer-led {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(52 211 153 / 0); }
+  50% { box-shadow: 0 0 0 4px rgb(52 211 153 / .35); }
 }
-.receipt-paper::after {
+@keyframes printer-head {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(90px); }
+  55% { transform: translateX(12px); }
+  80% { transform: translateX(64px); }
+}
+@keyframes tear-in {
+  0% { opacity: 0; transform: translateY(-3px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.receipt-printer { width: 336px; max-width: 100%; }
+.printer-body {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 14px 14px 4px 4px;
+  background: linear-gradient(180deg, #3b3f52 0%, #222534 100%);
+  box-shadow: 0 8px 20px rgb(16 24 40 / .22), inset 0 1px 0 rgb(255 255 255 / .12);
+}
+.printer-led {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 9999px;
+  background: #34d399;
+  animation: printer-led 1.1s ease-in-out 3;
+}
+.printer-label {
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgb(255 255 255 / .62);
+}
+.printer-head {
+  width: 28px;
+  height: 3px;
+  margin-left: auto;
+  flex: none;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #818cf8, #a78bfa);
+  animation: printer-head 1.8s ease-in-out both;
+}
+.printer-slot {
+  height: 12px;
+  margin: 0 8px;
+  border-radius: 0 0 8px 8px;
+  background: linear-gradient(180deg, #0f172a 0%, #334155 100%);
+  box-shadow: inset 0 3px 5px rgb(0 0 0 / .55);
+}
+.receipt-output { position: relative; padding: 0 14px; }
+.receipt-output .receipt-paper {
+  transform-origin: top center;
+  animation: printer-feed 1.8s cubic-bezier(.2, .85, .25, 1) both;
+}
+.receipt-output .receipt-paper::after {
   content: "";
   position: absolute;
   left: 0;
@@ -79,7 +142,13 @@
   height: 2px;
   pointer-events: none;
   background: linear-gradient(90deg, transparent, #818cf8, transparent);
-  animation: receipt-scan 1.15s ease-in-out both;
+  animation: printer-scan 1.8s ease-in-out both;
+}
+.receipt-tear {
+  height: 9px;
+  margin-bottom: 16px;
+  background: radial-gradient(circle at 50% 0, transparent 4px, #fff 4.5px) 0 0 / 10px 9px repeat-x;
+  animation: tear-in .35s ease-out 1.5s both;
 }
 /* ── Auth / sign-in surfaces ─────────────────────────────────────────────── */
 /* Every auth surface (login, sign-up, reset, till lock) shares this retail backdrop. */
@@ -214,8 +283,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .receipt-paper, .receipt-paper::after { animation: none; }
-  .receipt-paper::after { display: none; }
+  .receipt-paper, .receipt-paper::after,
+  .receipt-output .receipt-paper, .receipt-output .receipt-paper::after,
+  .printer-led, .printer-head, .receipt-tear { animation: none !important; }
+  .receipt-output .receipt-paper { clip-path: none !important; transform: none !important; }
+  .receipt-paper::after, .receipt-output .receipt-paper::after, .receipt-tear { display: none; }
   .auth-orb, .auth-panel-in, .auth-progress, .auth-shimmer,
   .pin-dots-busy, .pin-dots-error, .scanner-line, .scanner-pulse { animation: none !important; }
   .scanner-line { top: 50%; }
@@ -229,6 +301,8 @@
     transform: none !important;
   }
   .receipt-paper::after { display: none !important; }
+  .receipt-output { position: static; padding: 0; }
+  .receipt-tear { display: none !important; }
 
   body * {
     visibility: hidden;

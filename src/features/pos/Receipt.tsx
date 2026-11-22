@@ -78,7 +78,7 @@ export function Receipt({ data, className }: { data: ReceiptData; className?: st
             <div key={i} className="flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-1.5 text-ink-500">
                 <span className="size-1.5 rounded-full bg-brand-500" />
-                {methodLabel[p.method]}{p.reference && <span className="text-ink-400">· {p.reference}</span>}
+                {methodLabel[p.method]}{p.reference && <span className="text-ink-400">· {shortReference(p.reference)}</span>}
               </span>
               <span className="num font-semibold text-ink-800">{formatMoney(p.amount)}</span>
             </div>
@@ -118,3 +118,7 @@ const TotalRow = ({ label, value, tone }: { label: string; value: string; tone?:
 );
 
 const Rule = ({ className }: { className?: string }) => <div className={cn("my-3 border-t border-dashed border-ink-300", className)} />;
+
+/** Paystack references are long; keep the receipt tidy while the full value stays in sale history. */
+const shortReference = (reference: string) =>
+  reference.startsWith("Paystack ") ? `Paystack ${reference.slice(-8)}` : reference;

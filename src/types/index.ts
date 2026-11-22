@@ -127,6 +127,8 @@ export interface PaymentLine {
   network?: string;
   /** Provider status, e.g. `pending` while a request-to-pay awaits approval. */
   status?: string;
+  /** Paystack Inline reference. The server verifies it before saving the sale. */
+  paystackReference?: string;
 }
 
 export type SaleStatus = "completed" | "refunded" | "partially_refunded" | "voided";

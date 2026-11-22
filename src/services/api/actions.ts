@@ -169,6 +169,12 @@ export const actions = {
   },
 
   /* ───────── Selling ───────── */
+  /** Reserves a Paystack reference for the Inline dialog. Only the public key comes back. */
+  async initializePaystack(i: { amount: number; email?: string; phone?: string }): Promise<{ reference: string; publicKey: string; email: string; amount: number }> {
+    if (DEMO) return { reference: `DEMO-${Date.now()}`, publicKey: "pk_demo", email: i.email || "customer@example.com", amount: i.amount };
+    return http.post("/paystack/initialize", i);
+  },
+
   async checkout(i: CheckoutInput): Promise<SaleReceipt> {
     if (DEMO) return demoReceipt(i);
     const receipt = await http.post<SaleReceipt>("/checkout", {
@@ -178,7 +184,7 @@ export const actions = {
       // The price is only sent when the cashier changed it, so the server always prices from the catalogue otherwise.
       lines: i.lines.map((l) => ({ productId: l.productId, variantId: l.variantId ?? null, quantity: l.quantity, discount: l.discount, ...(l.priceOverride ? { unitPrice: l.unitPrice } : {}) })),
       // Phone and network power the network-specific MoMo request - don't drop them on the wire.
-      payments: i.payments.map((p) => ({ method: p.method, amount: p.amount, reference: p.reference ?? null, phone: p.phone ?? null, network: p.network ?? null })),
+      payments: i.payments.map((p) => ({ method: p.method, amount: p.amount, reference: p.reference ?? null, phone: p.phone ?? null, network: p.network ?? null, paystackReference: p.paystackReference ?? null })),
     });
     invalidate("sales", "products", "shifts", "dashboard", "customers", "activity", "movements", "notifications");
     return receipt;
