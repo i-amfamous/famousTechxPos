@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import {
-  LuBanknote, LuCircleCheck, LuCreditCard, LuLandmark, LuPlus, LuPrinter, LuShieldCheck, LuSmartphone, LuTrash2, LuUserPlus,
+  LuBanknote, LuCreditCard, LuLandmark, LuPlus, LuPrinter, LuShieldCheck, LuSmartphone, LuTrash2, LuUserPlus,
 } from "react-icons/lu";
 import { useSession } from "@/app/session";
 import { actions, useApprovers, useCustomers, useEmployees, useHeldCarts, useShiftSummary } from "@/services/api";
@@ -376,6 +376,40 @@ const methodStyle: Record<PaymentMethod, { idle: string; active: string; swatch:
   },
 };
 
+/** Pastel waves, springy props, a filling ring and a check that draws itself. */
+const saleWaves = ["#4da6f5", "#f6c56f", "#a78bfa", "#34d399"];
+const saleConfetti = [
+  { x: "-104px", y: "-30px", tone: "#f59e0b", delay: "0.14s", size: "12px", radius: "4px", r: "-18deg" },
+  { x: "94px", y: "-54px", tone: "#f472b6", delay: "0.2s", size: "14px", radius: "9999px", r: "22deg" },
+  { x: "-118px", y: "48px", tone: "#4da6f5", delay: "0.26s", size: "10px", radius: "3px", r: "32deg" },
+  { x: "108px", y: "40px", tone: "#34d399", delay: "0.32s", size: "12px", radius: "9999px", r: "-24deg" },
+  { x: "-58px", y: "86px", tone: "#fb7185", delay: "0.38s", size: "9px", radius: "9999px", r: "12deg" },
+  { x: "64px", y: "92px", tone: "#a78bfa", delay: "0.44s", size: "11px", radius: "3px", r: "18deg" },
+] as const;
+
+function SaleCompleteMark() {
+  return (
+    <div className="sale-mark" aria-hidden="true">
+      {saleWaves.map((tone, i) => (
+        <span key={tone} className="sale-wave" style={{ "--wave": tone, "--delay": `${0.04 + i * 0.12}s` } as CSSProperties} />
+      ))}
+      {saleConfetti.map((piece) => (
+        <span key={`${piece.x}-${piece.y}`} className="sale-confetti" style={{
+          "--x": piece.x, "--y": piece.y, "--tone": piece.tone, "--delay": piece.delay,
+          "--size": piece.size, "--radius": piece.radius, "--r": piece.r,
+        } as CSSProperties} />
+      ))}
+      <span className="sale-badge">
+        <svg viewBox="0 0 80 80" focusable="false">
+          <circle className="sale-track" cx="40" cy="40" r="34" />
+          <circle className="sale-progress" cx="40" cy="40" r="34" />
+          <path className="sale-check" d="M24 41 L35 52 L57 28" pathLength={100} />
+        </svg>
+      </span>
+    </div>
+  );
+}
+
 export function PaymentModal({
   open, onClose, method, onMethodChange, total, lines, customer, cartDiscount, discountReason, discountApprovalId, priceApprovalId, idempotencyKey, onComplete,
 }: {
@@ -494,23 +528,23 @@ export function PaymentModal({
   return (
     <Modal open={open} onClose={stage === "processing" || paystackBusy ? () => {} : stage === "done" ? onComplete : onClose} size="lg" dismissible={stage !== "processing" && !paystackBusy} title={stage === "done" ? undefined : "Take payment"}>
       {stage === "done" && receipt ? (
-        <div className={cn("grid justify-items-center gap-6 py-2", showReceipt && "lg:grid-cols-[1fr_auto]")}>
-          <div className="flex w-full flex-col items-center justify-center text-center">
-            <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><LuCircleCheck className="size-9" /></div>
-            <h2 className="mt-4 text-2xl font-semibold text-ink-900">Sale complete</h2>
-            <p className="text-sm text-ink-500">Receipt {receipt.receiptNumber}</p>
+        <div className={cn("grid w-full justify-items-center gap-6 py-2", showReceipt && "lg:grid-cols-[1fr_auto] lg:items-start")}>
+          <div className="sale-complete w-full">
+            <SaleCompleteMark />
+            <h2 className="sale-rise sale-rise-title mt-5 text-2xl font-semibold tracking-tight text-ink-900">Sale complete</h2>
+            <p className="sale-rise sale-rise-sub mt-1 text-sm text-ink-500">Receipt {receipt.receiptNumber}</p>
             {!!receipt.paymentNotices?.length && (
-              <div className="mt-3 w-full max-w-xs space-y-2 text-left">
+              <div className="sale-rise sale-rise-details mt-4 w-full max-w-xs space-y-2 text-left">
                 {receipt.paymentNotices.map((notice, i) => <Callout key={i} tone="info">{notice}</Callout>)}
               </div>
             )}
             {!!receipt.change && (
-              <div className="mt-6 rounded-2xl bg-amber-50 px-8 py-4 ring-1 ring-amber-200">
+              <div className="sale-rise sale-rise-change mt-5 rounded-2xl bg-amber-50 px-8 py-4 ring-1 ring-amber-200">
                 <p className="text-sm font-medium text-amber-800">Give change</p>
                 <p className="num text-4xl font-bold text-amber-900">{formatMoney(receipt.change)}</p>
               </div>
             )}
-            <div className="mt-8 flex w-full max-w-xs flex-col gap-2">
+            <div className="sale-rise sale-rise-actions mt-6 flex w-full max-w-xs flex-col gap-2">
               {!showReceipt && (
                 <Button size="lg" icon={<LuPrinter className="size-5" />} onClick={() => { setShowReceipt(true); setPrintRun((n) => n + 1); }} autoFocus>
                   Print receipt
