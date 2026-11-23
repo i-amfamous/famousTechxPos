@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import mysql from "mysql2/promise";
 
 const API = process.env.QA_API_URL ?? "https://famoustechxpos-1.onrender.com";
+const WEB = process.env.QA_WEB_URL ?? "https://famoustechxpos.onrender.com";
 const env = readFileSync(new URL("../.env", import.meta.url), "utf8");
 const dbLine = env.split(/\r?\n/).find((l) => l.startsWith("DATABASE_URL="));
 if (!dbLine) throw new Error("DATABASE_URL not found in server/.env");
@@ -45,12 +46,13 @@ await db.query(
 
 let pass = 0, fail = 0;
 const results: { name: string; ms: number; status: number; note: string }[] = [];
-async function call(name: string, path: string, init: RequestInit = {}) {
+async function call(name: string, path: string, init: RequestInit = {}, opts: { auth?: boolean; base?: string } = {}) {
   const started = Date.now();
+  const url = opts.base ? `${opts.base}${path}` : `${API}/api${path}`;
   try {
-    const r = await fetch(`${API}/api${path}`, {
+    const r = await fetch(url, {
       ...init,
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(init.headers ?? {}) },
+      headers: { ...(opts.auth === false ? {} : { Authorization: `Bearer ${token}` }), "Content-Type": "application/json", ...(init.headers ?? {}) },
       signal: AbortSignal.timeout(30000),
     });
     const text = await r.text();
@@ -81,10 +83,22 @@ try {
   await call("customers", `/customers?${b}`);
   const sales = await call("sales", `/sales?${b}&limit=50`);
   const firstSale = (sales?.sales ?? sales?.items ?? sales?.[0]) as { id?: string } | undefined;
+  let firstReceipt: { receiptNumber?: string; shareToken?: string } | null = null;
   if (firstSale?.id) {
     await call("sale detail", `/sales/${firstSale.id}`);
-    await call("sale receipt", `/sales/${firstSale.id}/receipt`);
+    firstReceipt = await call("sale receipt", `/sales/${firstSale.id}/receipt`);
     await call("sale refunds", `/sales/${firstSale.id}/refunds`);
+    if (firstReceipt?.shareToken) {
+      const publicView = await call("public receipt", `/receipts/${encodeURIComponent(firstReceipt.shareToken)}`, {}, { auth: false });
+      if (publicView?.receiptNumber !== firstReceipt.receiptNumber) {
+        fail++;
+        console.log("FAIL     -      public receipt did not match the printed receipt number");
+      } else {
+        pass++;
+        console.log("PASS     -      public receipt matches the printed receipt number");
+      }
+      await call("receipt page", `/receipt/${encodeURIComponent(firstReceipt.shareToken)}`, {}, { auth: false, base: WEB });
+    }
   }
   const range = `from=2026-08-01&to=2026-11-30&${b}`;
   await call("report dashboard", `/reports/dashboard?${range}`);
