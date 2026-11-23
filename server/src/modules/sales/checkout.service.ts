@@ -10,6 +10,7 @@ import { getSettings } from "../../core/settings.js";
 import { nowSql } from "../../core/time.js";
 import { bool, clean, n, nullIfEmpty, uuid } from "../../core/values.js";
 import { requireBranch, requirePerm, type Actor } from "../../auth/access.js";
+import { randomToken } from "../../auth/crypto.js";
 import { consumeApproval } from "../approvals/approvals.service.js";
 import { applyStock } from "../inventory/stock-ledger.js";
 import { PAYMENT_METHODS, saleReceipt } from "./sales.service.js";
@@ -254,10 +255,12 @@ async function checkoutTx(tx: Db, actor: Actor, p: CheckoutInput, key: string): 
 
   const saleId = uuid();
   const now = nowSql();
-  await tx.run(`INSERT INTO sales (id, organization_id, branch_id, terminal_id, shift_id, cashier_id, customer_id, receipt_number, idempotency_key, status,
+  // The random token is the whole credential for the public digital receipt. It is not derived from sale data.
+  const receiptToken = randomToken(32);
+  await tx.run(`INSERT INTO sales (id, organization_id, branch_id, terminal_id, shift_id, cashier_id, customer_id, receipt_number, idempotency_key, receipt_token, status,
       subtotal, discount_total, tax_total, total, paid_total, change_due, cost_total, refunded_total, discount_approval_id, created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [saleId, actor.orgId, t.branch_id, t.id, shiftId, actor.memberId, customerId, receipt, key, "completed",
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [saleId, actor.orgId, t.branch_id, t.id, shiftId, actor.memberId, customerId, receipt, key, receiptToken, "completed",
       money(sub), money(discTotal), money(tax), money(total), money(paid), money(change), money(cost), 0, discApprover ? p.discountApprovalId : null, now]);
   if (discApprover) await tx.run("UPDATE approvals SET used_ref = ? WHERE id = ?", [saleId, p.discountApprovalId]);
 

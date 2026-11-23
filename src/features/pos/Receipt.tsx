@@ -1,4 +1,5 @@
 import { cn, formatDateTime, formatMoney, methodLabel } from "@/lib/format";
+import { receiptLink, receiptQrSvg } from "@/lib/qr";
 import type { SaleReceipt } from "@/types";
 
 export type ReceiptData = SaleReceipt & { reprint?: boolean };
@@ -6,6 +7,8 @@ export type ReceiptData = SaleReceipt & { reprint?: boolean };
 /** 80mm thermal-style receipt. Wrap in `.print-area` to print just this. */
 export function Receipt({ data, className }: { data: ReceiptData; className?: string }) {
   const business = data.business;
+  const shareUrl = data.shareToken ? receiptLink(data.shareToken) : "";
+  const qr = shareUrl ? receiptQrSvg(shareUrl) : "";
   return (
     <div className={cn("receipt-paper relative mx-auto w-[300px] overflow-hidden bg-white text-ink-900 shadow-pop ring-1 ring-ink-200", className)}>
       {/* ── Branded header ── */}
@@ -96,8 +99,16 @@ export function Receipt({ data, className }: { data: ReceiptData; className?: st
         {/* ── Footer ── */}
         <p className="text-center text-[10px] font-medium text-ink-600">{business?.footer || "Thank you for shopping with us!"}</p>
         <p className="mt-1 text-center text-[9px] text-ink-400">Keep this receipt for your records · {data.receiptNumber}</p>
-        <div className="mx-auto mt-3 h-8 w-48 bg-[repeating-linear-gradient(90deg,#101828_0_2px,transparent_2px_4px,#101828_4px_5px,transparent_5px_8px)]" aria-hidden />
-        <p className="mt-1 text-center text-[9px] font-semibold tracking-[0.3em] text-ink-400">{data.receiptNumber}</p>
+        {shareUrl && (
+          <div className="mt-4 flex flex-col items-center">
+            <div
+              className="rounded-lg bg-white p-1 ring-1 ring-ink-200 [&>svg]:h-[76px] [&>svg]:w-[76px]"
+              dangerouslySetInnerHTML={{ __html: qr }}
+            />
+            <p className="mt-1.5 text-center text-[9px] font-semibold text-ink-500">Scan for digital receipt</p>
+          </div>
+        )}
+        <p className="mt-2 text-center text-[9px] font-semibold tracking-[0.3em] text-ink-400">{data.receiptNumber}</p>
       </div>
     </div>
   );

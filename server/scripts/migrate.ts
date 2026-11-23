@@ -37,7 +37,11 @@ async function main() {
   const imageType = String((imageCol as { DATA_TYPE?: string } | null)?.DATA_TYPE ?? "").toLowerCase();
   if (imageCol && !["text", "mediumtext", "longtext"].includes(imageType))
     await db.run("ALTER TABLE products MODIFY COLUMN image_url TEXT NULL");
-  // Index must be created after the columns exist (existing DBs get them via the ALTER above).
+  // Older sales get a shareable receipt link the next time they are opened.
+  const receiptTokenCol = await one(db, "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sales' AND COLUMN_NAME = 'receipt_token'");
+  if (!receiptTokenCol) await db.run("ALTER TABLE sales ADD COLUMN receipt_token VARCHAR(64) NULL");
+  // Index is created here, after the column exists on both fresh and existing databases.
+  await db.run("CREATE UNIQUE INDEX IF NOT EXISTS sales_receipt_token ON sales (receipt_token)");
   await db.run("CREATE INDEX IF NOT EXISTS members_deleted ON business_members (organization_id, deleted_at)");
   await seedReferenceData(db);
   await db.run("DELETE FROM schema_migrations WHERE version = ?", ["2026-11-21"]);

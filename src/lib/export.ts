@@ -4,6 +4,7 @@
  * from Famous TechX.
  */
 import { formatDateTime, formatMoney, methodLabel } from "./format";
+import { receiptLink, receiptQrSvg } from "./qr";
 import type { PaymentMethod } from "@/types";
 
 export interface ExportColumn { key: string; header: string; align?: "left" | "right" }
@@ -33,6 +34,7 @@ export interface PrintableReceipt {
   payments: { method: PaymentMethod; amount: number; reference?: string; phone?: string; network?: string }[];
   change?: number;
   reprint?: boolean;
+  shareToken?: string;
 }
 
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -116,6 +118,8 @@ ${AUTOPRINT}
 /** Opens a clear branded receipt template, sized for an 80mm thermal printer or PDF. */
 export function printReceipt(data: PrintableReceipt) {
   const b = data.business;
+  const shareUrl = data.shareToken ? receiptLink(data.shareToken) : "";
+  const qr = shareUrl ? receiptQrSvg(shareUrl) : "";
   const contact = [b?.phone && `Tel ${esc(b.phone)}`, b?.tin && `TIN ${esc(b.tin)}`, b?.email && esc(b.email), b?.address && esc(b.address)].filter(Boolean).join(" · ");
   const items = data.items.length
     ? data.items.map((i) => `<tr><td><b>${esc(i.name)}</b><small>${i.quantity} × ${money(i.unitPrice)}${i.discount ? ` · ${money(i.discount)} off` : ""}</small></td><td class="r num">${money(i.quantity * i.unitPrice - i.discount)}</td></tr>`).join("")
@@ -162,7 +166,9 @@ export function printReceipt(data: PrintableReceipt) {
   .change { margin-top:9px; display:flex; justify-content:space-between; border-radius:8px; background:#fffbeb; color:#92400e; padding:7px 9px; font-weight:700; }
   .thanks { margin-top:14px; text-align:center; color:#374151; font-size:10px; font-weight:600; }
   .foot { margin-top:4px; text-align:center; color:#9ca3af; font-size:8px; }
-  .barcode { height:28px; margin:12px auto 3px; width:80%; background:repeating-linear-gradient(90deg,#111827 0 2px,transparent 2px 4px,#111827 4px 5px,transparent 5px 8px); }
+  .qr { margin:12px auto 3px; width:36mm; text-align:center; }
+  .qr svg { display:block; width:36mm; height:36mm; margin:0 auto; }
+  .qr span { display:block; margin-top:3px; color:#4b5563; font-size:8px; font-weight:700; }
   .bar { margin:0 auto 14px; width:80mm; display:flex; justify-content:center; }
   .bar button { border:0; border-radius:9px; background:#4f46e5; color:#fff; padding:9px 16px; font:inherit; font-weight:700; cursor:pointer; box-shadow:0 8px 20px -8px rgba(79,70,229,.8); }
   @media print { body { background:#fff; } .sheet { margin:0; box-shadow:none; } .bar { display:none; } }
@@ -197,7 +203,7 @@ export function printReceipt(data: PrintableReceipt) {
     ${data.change ? `<div class="change"><span>Change due</span><b>${money(data.change)}</b></div>` : ""}
     <p class="thanks">${esc(b?.footer || "Thank you for shopping with us!")}</p>
     <p class="foot">Keep this receipt for your records · ${esc(data.receiptNumber)}</p>
-    <div class="barcode" aria-hidden="true"></div>
+    ${shareUrl ? `<div class="qr">${qr}<span>Scan for digital receipt</span></div>` : ""}
     <p class="foot">${esc(data.receiptNumber)}</p>
   </main>
 </div>

@@ -3,7 +3,7 @@ import { ok, branchQuery, type Route } from "../../http/router.js";
 import { checkout } from "./checkout.service.js";
 import { discardHeld, holdCart, listHeld, resumeHeld } from "./held-carts.service.js";
 import { refundSale, voidSale } from "./returns.service.js";
-import { getSale, listSales, saleReceipt, saleRefunds } from "./sales.service.js";
+import { getSale, listSales, publicReceipt, saleReceipt, saleRefunds } from "./sales.service.js";
 
 export const salesRoutes: Route[] = [
   // Checkout emits its own notice only when a new sale is committed, never on idempotent replays.
@@ -11,6 +11,8 @@ export const salesRoutes: Route[] = [
   { method: "get", path: "/sales", auth: "member", run: (c) => listSales(c.db, c.actor, branchQuery(c)) },
   { method: "get", path: "/sales/:id", auth: "member", run: (c) => getSale(c.db, c.actor, c.params.id) },
   { method: "get", path: "/sales/:id/receipt", auth: "member", run: (c) => saleReceipt(c.db, c.actor, c.params.id) },
+  // Customer-facing digital receipt. The random token is the only credential; no account is needed.
+  { method: "get", path: "/receipts/:token", auth: "public", limit: 60, run: (c) => publicReceipt(c.db, c.params.token) },
   { method: "get", path: "/sales/:id/refunds", auth: "member", run: (c) => saleRefunds(c.db, c.actor, c.params.id) },
   { method: "post", path: "/sales/:id/refund", auth: "member", run: (c) => refundSale(c.db, c.actor, c.params.id, c.body) },
   { method: "post", path: "/sales/:id/void", auth: "member", run: async (c) => { await voidSale(c.db, c.actor, c.params.id, c.body); return ok; } },

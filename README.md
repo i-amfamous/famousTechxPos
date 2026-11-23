@@ -7,11 +7,13 @@
 | Website (POS + back office) | `/` | React 19, TypeScript, Vite, Tailwind CSS v4 |
 | API server | `server/` | Node.js, Express, TypeScript, WebSocket |
 | Database | TiDB Cloud | MySQL-compatible, set up by `npm run migrate` |
-| Email | Brevo | SMTP relay for invites and password resets |
+| Email | Brevo | REST API for invites and password resets, with SMTP fallback |
+| Payments | Paystack | Ghana Mobile Money through Paystack Inline, verified on the server |
+| Live updates | WebSocket | Authenticated change notices, refetched through the scoped API |
 
 The website has two modes:
 - **Demo mode:** when `VITE_API_URL` is empty, the app runs on sample data. Any PIN works on the till except `0000`, which simulates a wrong PIN.
-- **Live mode:** when `VITE_API_URL` points to the server, everything is saved in TiDB and the server enforces every permission.
+- **Live mode:** when `VITE_API_URL` points to the server, everything is saved in TiDB and the server enforces every permission. Open screens refresh automatically when someone else sells, edits stock, changes access or records a payment. No browser reload is needed.
 
 ---
 
@@ -34,19 +36,23 @@ Create the owner account and business, add a product, register this computer as 
 `VITE_API_URL` is **baked into the bundle at build time**. If it is empty, the app silently runs on sample data. `npm run build` now refuses to produce that bundle unless you set `ALLOW_DEMO_BUILD=1` deliberately.
 
 1. **Database:** create a TiDB Cloud Serverless cluster, put its connection string in `server/.env` as `DATABASE_URL`, and run `cd server && npm run migrate`. The `famous_pos` database and tables are created for you. Ensure the cluster has automated backups/PITR enabled before taking real payments. See [server/README.md](server/README.md#1-set-up-tidb-cloud-about-5-minutes).
-2. **Email (Brevo):** in Brevo go to **SMTP & API → SMTP**, generate an SMTP key and verify a sender address, then add to `server/.env`: `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USER` (your Brevo login email), `SMTP_PASS` (the SMTP key - not the API key) and `MAIL_FROM` (the verified sender, e.g. `Famous TechX <no-reply@yourdomain.com>`). Without SMTP the app still works - invite links are shown on screen for you to share manually.
+2. **Email (Brevo):** in Brevo generate an API key and verify a sender address, then add `BREVO_API_KEY` and `MAIL_FROM` (for example `Famous TechX <no-reply@yourdomain.com>`) to `server/.env`. The SMTP values (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`) are kept as a fallback. Without email credentials the app still works, and invite links are shown on screen for you to share manually.
 3. **API server:** deploy `server/` to Render using the included `render.yaml` blueprint, or to Railway with `server/railway.json`. Set these variables on the host (secrets are never committed):
    - `DATABASE_URL` - the TiDB connection string
    - `APP_URL` - the **public website address** (required in production; invite/reset links and CORS depend on it)
    - `CORS_ORIGINS` - extra origins if you use both a custom domain and an `onrender.com` URL
    - `NODE_ENV=production` (set in `render.yaml`; set it manually on Railway)
    - SMTP values above
+   - `PAYSTACK_SECRET_KEY` - server-only secret, never exposed to the website or committed
+   - `PAYSTACK_PUBLIC_KEY` - public key, sent to the browser only for the Paystack Inline dialog
+   - `PAYSTACK_CALLBACK_URL` - optional backup redirect; Inline does not rely on it
 4. **Website:** copy `.env.production.example` to `.env.production` and set `VITE_API_URL` to the **full public API origin** (for example `https://famous-techx-pos-api.onrender.com`). Do **not** use `/api` in production unless your host proxies both `/api` and `/ws`. Run `npm run build` and host `dist/`. The Render blueprint includes a static site with a rewrite of all paths to `index.html`; if you host elsewhere (Netlify, Vercel, …), add the same SPA rewrite.
 5. **Verify before opening the tills:**
    - `curl https://<your-api>/health` returns `{"ok":true,...}`.
-   - Sign in at the website, add a product, then register a till in **Settings → Tills** and sell something. Confirm the sale appears in **Sales** after a full page reload - that proves data is coming from the database, not sample data.
+   - Sign in at the website, add a product, then register a till in **Settings → Tills** and sell something. Confirm the sale appears in **Sales** automatically, and again in a second tab. That proves live data is coming from the database, not sample data.
    - Open the site over HTTPS; browsers only allow camera scanning on HTTPS (or localhost). Phone scanning also needs the full API origin above.
    - Check the server logs for `APP_URL` / `DATABASE_URL` startup errors.
+6. **Paystack webhook (backup):** in the Paystack dashboard add `https://<your-api>/api/webhooks/paystack` for the `charge.success` event. Inline confirmation is the primary path; the webhook reconciles payments that were completed but never confirmed in the browser. Keep test keys until the Inline flow and webhook have both been verified, then switch to live keys. Never put the secret key in a browser variable or a tracked file.
 
 ## 3. Everyday commands
 
@@ -77,7 +83,15 @@ Every screen that uses scans (POS, Products, Inventory, Transfers, Purchase orde
 
 Cameras only work on **HTTPS** or `localhost`. To test with a phone on your local network, run `npm run dev:https`, then enter `https://<your-computer-ip>:5173` in the pairing window.
 
-## 5. How employees work
+## 5. Payments, receipts and live updates
+
+- **Ghana Mobile Money:** choose MTN MoMo, Telecel Cash or AirtelTigo at checkout. The amount is sent to Paystack in integer pesewas with `GHS` as the currency. Only the public key reaches the browser; the Inline dialog collects the customer's phone number and Paystack confirms the payment before the sale is saved.
+- **Confirmation:** the Inline callback is followed by a server-side `verify`. A webhook is a backup for payments finished on the phone but not confirmed in the browser. Retries and replays are idempotent, so nobody is charged twice and no duplicate sale is created.
+- **After payment:** the till shows **Sale complete** with print and new-sale options. The animated printer runs only when **Print receipt** is pressed.
+- **Digital receipt:** every receipt has a QR code that opens a read-only receipt page at `/receipt/:token`. The token is random, stored with the sale and valid without sign-in. Reprinting the same sale uses the same token. Treat the link like the paper receipt: anyone holding it can view that receipt.
+- **Real-time:** an authenticated WebSocket sends metadata-only change notices (`{ orgId, branchId?, type, at }`) and never pushes row data. Open screens refetch through the normal permission-scoped API. Role, branch or permission changes also refresh the session. If access changes while a device is offline, sign in again to pick it up. A single API instance is assumed; multiple instances would need shared pub/sub.
+
+## 6. How employees work
 
 - **Separate logins:** every employee has their own account, created by email invite or with a temporary password. Staff without email sign in with their phone number.
 - **Tills:** a till is a device the owner registers. Staff unlock it by tapping their name and entering a 4-digit PIN. They set the PIN themselves the first time, after confirming their password.
@@ -86,7 +100,7 @@ Cameras only work on **HTTPS** or `localhost`. To test with a phone on your loca
 - **Shifts:** a shift has an opening float, cash in and out, an X report during the shift, and a Z report at close with a count by cedi denomination and the difference from expected cash.
 - **Activity log:** every sale, refund, approval, stock change, PIN lockout and permission change is recorded.
 
-## 6. Project structure
+## 7. Project structure
 
 ```
 src/
@@ -94,6 +108,9 @@ src/
   lib/http.ts              API client (session + till credentials, errors, demo switch)
   lib/errors.ts            AppError - messages that are safe to show staff
   lib/query.ts             small cache: dedupes requests, refetches after changes, clears on sign-out
+  lib/qr.ts                QR encoder for the receipt link, rendered as a compact SVG
+  app/live-updates.tsx     WebSocket notices, session refresh and refetch on change
+  features/receipts/       public digital receipt page (/receipt/:token)
   services/api/            the data layer screens use
     queries.ts             use…() read hooks
     actions.ts             actions.* writes, one API call each
@@ -105,8 +122,8 @@ src/
 server/                    API server - architecture, security model and endpoints in server/README.md
 ```
 
-## 7. Notes and limits
+## 8. Notes and limits
 
-- **Payments:** Mobile Money, card and bank payments are *recorded manually*. They're not verified with Paystack, Hubtel or MTN MoMo until those integrations and credentials are added.
+- **Payments:** Mobile Money is verified through Paystack Inline plus a server-side check. Card and bank payments are still recorded manually. Test keys stay on until a real test payment has been confirmed on the server and the webhook has been seen in the logs.
 - **Offline:** offline selling is not supported. Checkout needs a connection, and a retry never double-charges.
 - **Tax:** set your tax rate in **Settings → Receipts & tax**, and check current GRA rates yourself.

@@ -350,6 +350,7 @@ CREATE TABLE IF NOT EXISTS sales (
   customer_id CHAR(36) NULL,
   receipt_number VARCHAR(40) NOT NULL,
   idempotency_key VARCHAR(80) NOT NULL,
+  receipt_token VARCHAR(64) NULL, -- shareable digital receipt link, safe to expose only by URL
   status VARCHAR(20) NOT NULL DEFAULT 'completed', -- completed | partially_refunded | refunded | voided
   subtotal DECIMAL(14,2) NOT NULL,
   discount_total DECIMAL(14,2) NOT NULL DEFAULT 0,

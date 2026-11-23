@@ -5,6 +5,7 @@ import { getSettings } from "../../core/settings.js";
 import { iso } from "../../core/time.js";
 import { bool, n } from "../../core/values.js";
 import { requireBranch, type Actor } from "../../auth/access.js";
+import { randomToken } from "../../auth/crypto.js";
 
 export const mapSale = (s: Row, items: Row[], payments: Row[]) => ({
   id: s.id, receiptNumber: s.receipt_number, createdAt: iso(s.created_at), cashierId: s.cashier_id, terminalId: s.terminal_id ?? "",
@@ -20,10 +21,8 @@ function canSeeSale(actor: Actor, s: Row) {
   return actor.perms.has("sales.view_all") ? actor.branchIds.has(s.branch_id) || actor.isOwner : s.cashier_id === actor.memberId;
 }
 
-/** Receipt payload for a sale (after checkout and for reprints). */
-export async function saleReceipt(db: Db, actor: Actor, saleId: string) {
-  const s = await one(db, "SELECT * FROM sales WHERE id = ? AND organization_id = ?", [saleId, actor.orgId]);
-  if (!s || !canSeeSale(actor, s)) throw notFound("Sale not found.");
+/** Builds the printable and digital receipt from a sale row. No row data goes into the link token. */
+async function buildReceipt(db: Db, s: Row) {
   const [br, t, m, c, biz] = await Promise.all([
     one(db, "SELECT name FROM branches WHERE id = ?", [s.branch_id]),
     s.terminal_id ? one(db, "SELECT name FROM pos_terminals WHERE id = ?", [s.terminal_id]) : null,
@@ -31,10 +30,10 @@ export async function saleReceipt(db: Db, actor: Actor, saleId: string) {
     s.customer_id ? one(db, "SELECT name FROM customers WHERE id = ?", [s.customer_id]) : null,
     one(db, "SELECT * FROM businesses WHERE id = ?", [s.organization_id]),
   ]);
-  const settings = await getSettings(db, actor.orgId);
-  const items = await db.all("SELECT * FROM sale_items WHERE sale_id = ? ORDER BY name_snapshot", [saleId]);
-  const pays = await db.all("SELECT * FROM payments WHERE sale_id = ? ORDER BY created_at", [saleId]);
-  const notices = await db.all("SELECT message FROM momo_requests WHERE sale_id = ? ORDER BY created_at", [saleId]);
+  const settings = await getSettings(db, String(s.organization_id));
+  const items = await db.all("SELECT * FROM sale_items WHERE sale_id = ? ORDER BY name_snapshot", [s.id]);
+  const pays = await db.all("SELECT * FROM payments WHERE sale_id = ? ORDER BY created_at", [s.id]);
+  const notices = await db.all("SELECT message FROM momo_requests WHERE sale_id = ? ORDER BY created_at", [s.id]);
   return {
     saleId: s.id, receiptNumber: s.receipt_number, createdAt: iso(s.created_at), servedBy: m?.display_name ?? "", terminal: t?.name ?? "", branch: br?.name ?? "",
     customer: c?.name ?? undefined,
@@ -44,7 +43,31 @@ export async function saleReceipt(db: Db, actor: Actor, saleId: string) {
     payments: pays.map((p) => ({ method: p.method, amount: n(p.amount), reference: p.provider_reference ?? undefined, status: String(p.status ?? "") })),
     paymentNotices: notices.map((r) => String(r.message ?? "")).filter(Boolean),
     change: n(s.change_due), status: s.status,
+    shareToken: String(s.receipt_token ?? ""),
   };
+}
+
+/** Sales made before receipt links existed get one the first time the receipt is opened. */
+async function withShareToken(db: Db, s: Row): Promise<Row> {
+  if (s.receipt_token) return s;
+  const token = randomToken(32);
+  await db.run("UPDATE sales SET receipt_token = ? WHERE id = ? AND receipt_token IS NULL", [token, s.id]);
+  const fresh = await one(db, "SELECT receipt_token FROM sales WHERE id = ?", [s.id]);
+  return { ...s, receipt_token: fresh?.receipt_token ?? token };
+}
+
+/** Receipt payload for a sale (after checkout and for reprints). */
+export async function saleReceipt(db: Db, actor: Actor, saleId: string) {
+  const found = await one(db, "SELECT * FROM sales WHERE id = ? AND organization_id = ?", [saleId, actor.orgId]);
+  if (!found || !canSeeSale(actor, found)) throw notFound("Sale not found.");
+  return buildReceipt(db, await withShareToken(db, found));
+}
+
+/** Public, read-only receipt for a customer scanning the code on paper. */
+export async function publicReceipt(db: Db, token: string) {
+  const s = await one(db, "SELECT * FROM sales WHERE receipt_token = ?", [token]);
+  if (!s) throw notFound("This receipt link isn't valid. Check the code and try again.");
+  return buildReceipt(db, s);
 }
 
 async function withLines(db: Db, rows: Row[]) {

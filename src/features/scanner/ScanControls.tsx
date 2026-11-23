@@ -5,6 +5,7 @@ import { useSession } from "@/app/session";
 import { actions, useProducts } from "@/services/api";
 import { Badge, Button, Callout, Input, Menu, Modal, Spinner } from "@/components/ui";
 import { cn, formatMoney } from "@/lib/format";
+import { qrDataUrl } from "@/lib/qr";
 import type { BarcodeLookup } from "@/types";
 import { CameraScanner } from "./CameraScanner";
 import { useScanner } from "./ScannerProvider";
@@ -152,7 +153,7 @@ function PhonePairingModal() {
   useEffect(() => {
     let alive = true;
     if (!url) { setQr(null); return; }
-    import("qrcode").then((m) => m.default.toDataURL(url, { margin: 1, width: 240, color: { dark: "#14142b", light: "#ffffff" } })).then((d) => alive && setQr(d)).catch(() => setQr(null));
+    qrDataUrl(url).then((d) => alive && setQr(d)).catch(() => setQr(null));
     return () => { alive = false; };
   }, [url]);
 

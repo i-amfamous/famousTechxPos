@@ -109,6 +109,12 @@ export function SaleDetailPage() {
   const [refund, setRefund] = useState(false);
   const [voiding, setVoiding] = useState(false);
   const [approval, setApproval] = useState<(ApprovalRequest & { onOk: (id: string) => void }) | null>(null);
+  const [shareToken, setShareToken] = useState<string>();
+  useEffect(() => {
+    let alive = true;
+    if (id) void actions.saleReceipt(id).then((r) => { if (alive) setShareToken(r?.shareToken); }).catch(() => undefined);
+    return () => { alive = false; };
+  }, [id]);
   if (q.loading) return <p className="text-sm text-ink-500">Loading sale…</p>;
   if (!sale) return <EmptyState title="Sale not found" description="It may be at another branch, or you only have access to your own sales." action={<Link to="/sales" className="text-sm font-medium text-brand-700">Back to sales</Link>} />;
   const cashier = employees.find((e) => e.id === sale.cashierId);
@@ -117,7 +123,7 @@ export function SaleDetailPage() {
     reprint: true, receiptNumber: sale.receiptNumber, createdAt: sale.createdAt, servedBy: cashier?.displayName ?? "", terminal: terminals.find((t) => t.id === sale.terminalId)?.name ?? "",
     branch: branches.find((b) => b.id === sale.branchId)?.name ?? "", customer: customers.find((c) => c.id === sale.customerId)?.name,
     business: business ? { name: business.name, phone: business.phone, tin: business.tin } : undefined,
-    items: sale.items, subtotal: sale.subtotal, discountTotal: sale.discountTotal, taxTotal: sale.taxTotal, total: sale.total, payments: sale.payments, change: sale.changeDue,
+    items: sale.items, subtotal: sale.subtotal, discountTotal: sale.discountTotal, taxTotal: sale.taxTotal, total: sale.total, payments: sale.payments, change: sale.changeDue, shareToken: shareToken ?? sale.receipt?.shareToken,
   };
   const doVoid = async (reason: string, approvalId?: string) => {
     try { await actions.voidSale(sale.id, reason, approvalId); toast({ tone: "success", title: "Sale voided" }); }

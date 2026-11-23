@@ -116,7 +116,7 @@ All endpoints take and return JSON. Send `Authorization: Bearer <token>` once si
 | Tills | `GET /terminal/roster` · `POST /terminal/pin-login` `/terminal/pin-setup` `/terminal/lock` · `GET/POST /terminals` · `POST /terminals/:id/revoke` |
 | Approvals | `GET /approvers` · `POST /approvals` |
 | Shifts | `GET /shifts` `/shifts/current` `/shifts/:id/summary` `/cash-movements` · `POST /shifts` `/shifts/:id/cash-movements` `/shifts/:id/close` |
-| Selling | `POST /checkout` · `GET /sales` `/sales/:id` `/sales/:id/receipt` `/sales/:id/refunds` · `POST /sales/:id/refund` `/sales/:id/void` · `GET/POST /held-carts` · `POST /held-carts/:id/resume` · `DELETE /held-carts/:id` |
+| Selling | `POST /checkout` · `GET /sales` `/sales/:id` `/sales/:id/receipt` `/sales/:id/refunds` · `GET /receipts/:token` (public digital receipt) · `POST /sales/:id/refund` `/sales/:id/void` · `GET/POST /held-carts` · `POST /held-carts/:id/resume` · `DELETE /held-carts/:id` |
 | Customers | `GET/POST /customers` · `PATCH /customers/:id` · `POST /customers/:id/archive` |
 | People | `GET /employees` `/roles` `/permissions` `/activity` `/sign-ins` · `POST /employees` · `PATCH /employees/:id` · `PUT /employees/:id/access` · `POST /employees/:id/{status,sign-out,reset-password,resend-invite,reset-pin,make-owner}` · `POST /roles` · `PUT/DELETE /roles/:id` |
 | Catalogue | `GET/POST /categories` · `GET/POST /products` · `PATCH /products/:id` · `GET /barcode/:code` |
@@ -124,7 +124,8 @@ All endpoints take and return JSON. Send `Authorization: Bearer <token>` once si
 | Purchasing | `GET/POST /suppliers` · `PATCH /suppliers/:id` · `GET/POST /purchase-orders` · `POST /purchase-orders/:id/{status,receive}` |
 | Money | `GET/POST /expenses` · `POST /expenses/:id/void` · `GET /reports/{dashboard,employees,pnl}` · `GET /reports/employees/:id` |
 | Business | `GET/POST /branches` · `PATCH /branches/:id` · `PATCH /settings` · `GET /notifications` · `POST /notifications/read` |
-| Realtime | `WS /ws/scan?session=<id>&role=till\|phone` |
+| Payments | `POST /paystack/initialize` (reserve a reference for Paystack Inline) · `POST /webhooks/paystack` (`charge.success` backup reconciliation) |
+| Realtime | `WS /ws/scan?session=<id>&role=till\|phone` · `WS /ws/invalidate` (authenticated change notices) |
 | Health | `GET /health` |
 
 ## Scripts

@@ -49,6 +49,12 @@ export function PosPage() {
     () => products.filter((p) => (cat === "all" || p.categoryId === cat) && (p.name + p.sku + (p.barcode ?? "")).toLowerCase().includes(q.toLowerCase())),
     [products, cat, q],
   );
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of products) counts.set(p.categoryId, (counts.get(p.categoryId) ?? 0) + 1);
+    return counts;
+  }, [products]);
+  const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? "Product";
 
   // Mirrors the server's checkout maths (pesewas, tax-inclusive setting, taxable flag per product).
   const cents = (v: number) => Math.round((Number(v) || 0) * 100);
@@ -304,60 +310,59 @@ export function PosPage() {
                 autoFocus
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Scan barcode or search product / SKU…"
+                placeholder="Scan a barcode or search by name or SKU"
                 aria-label="Scan barcode or search products"
-                className="h-12 w-full rounded-xl border-0 bg-ink-50 pl-11 pr-4 text-base ring-1 ring-inset ring-ink-200 placeholder:text-ink-400 focus:bg-white focus:ring-2 focus:ring-brand-500"
+                className="h-12 w-full rounded-2xl border-0 bg-ink-50 pl-11 pr-4 text-base shadow-card ring-1 ring-inset ring-ink-200 placeholder:text-ink-400 focus:bg-white focus:ring-2 focus:ring-brand-500"
               />
-              <ScanButton label="" size="lg" className="h-12 shrink-0 px-4" />
+              <ScanButton label="" size="lg" className="h-12 shrink-0 rounded-2xl px-4" />
             </form>
             <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 scrollbar-thin">
-              {[{ id: "all", name: "All" }, ...categories].map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setCat(c.id)}
-                  className={cn("h-9 shrink-0 rounded-full px-4 text-sm font-medium transition-colors", cat === c.id ? "bg-brand-600 text-white" : "bg-ink-100 text-ink-700 hover:bg-ink-200")}
-                >
-                  {c.name}
-                </button>
-              ))}
+              {[{ id: "all", name: "All" }, ...categories].map((c) => {
+                const active = cat === c.id;
+                const count = c.id === "all" ? products.length : (categoryCounts.get(c.id) ?? 0);
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setCat(c.id)}
+                    aria-pressed={active}
+                    className={cn(
+                      "flex h-9 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-medium transition-all",
+                      active ? "bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-glow" : "bg-ink-100 text-ink-600 ring-1 ring-ink-200 hover:bg-white hover:text-brand-700 hover:ring-brand-300",
+                    )}
+                  >
+                    {c.name}
+                    <span className={cn("num rounded-full px-1.5 py-0.5 text-[10px] font-bold", active ? "bg-white/20 text-white" : "bg-white text-ink-500")}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-ink-500"><span className="num font-semibold text-ink-700">{filtered.length}</span> product{filtered.length === 1 ? "" : "s"}</p>
+              <p className="hidden text-xs text-ink-400 sm:block">Tap a product to add it to the sale</p>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 pb-24 sm:p-4 lg:pb-4">
             {filtered.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center text-ink-500">
-                <LuScanBarcode className="mb-2 size-10 text-ink-300" />
-                <p className="font-medium text-ink-700">No product matches “{q}”</p>
-                <p className="text-sm">Check the spelling or scan again.</p>
+                <span className="mb-4 grid size-16 place-items-center rounded-3xl bg-gradient-to-br from-brand-50 to-violet-100 text-brand-500 ring-1 ring-brand-100">
+                  <LuScanBarcode className="size-8" />
+                </span>
+                <p className="font-semibold text-ink-700">No product matches “{q}”</p>
+                <p className="mt-1 text-sm">Check the spelling, try another category or scan again.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                {filtered.map((p) => {
-                  const svc = isService(p);
-                  const out = !svc && p.stock <= 0;
-                  const low = !svc && !out && p.stock <= p.reorderLevel;
-                  const qty = inCart(p.id);
-                  return (
-                    <button
-                      key={p.id}
-                      disabled={out}
-                      onClick={() => tryAdd(p)}
-                      className={cn(
-                        "relative flex flex-col rounded-2xl bg-white p-3 text-left shadow-card ring-1 transition-all",
-                        out ? "cursor-not-allowed opacity-55 ring-ink-200" : "ring-ink-200 hover:ring-brand-400 active:scale-[.98]",
-                        qty > 0 && "ring-2 ring-brand-500",
-                      )}
-                    >
-                      <ProductCover p={p} className="mb-3 aspect-[4/3] h-auto w-full rounded-xl object-cover text-2xl ring-0" />
-                      <p className="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-ink-900">{p.name}</p>
-                      <div className="mt-1 flex items-end justify-between gap-1">
-                        <span className="num font-semibold text-ink-900">{formatMoney(p.sellingPrice)}</span>
-                        {svc ? <span className="text-[11px] text-ink-400">Service</span> : out ? <Badge tone="danger">Out</Badge> : low ? <Badge tone="warning">{p.stock} left</Badge> : <span className="num text-[11px] text-ink-400">{p.stock} in stock</span>}
-                      </div>
-                      {qty > 0 && <span className="num absolute right-2 top-2 flex size-7 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white shadow">{qty}</span>}
-                    </button>
-                  );
-                })}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5">
+                {filtered.map((p, i) => (
+                  <ProductTile
+                    key={p.id}
+                    p={p}
+                    index={i}
+                    qty={inCart(p.id)}
+                    category={categoryName(p.categoryId)}
+                    onAdd={() => tryAdd(p)}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -463,6 +468,61 @@ export function PosPage() {
         onApproved={(a, id) => { approval?.onOk(id); setApproval(null); toast({ tone: "success", title: "Approved", body: `Approved by ${a.fullName}` }); }}
       />
     </div>
+  );
+}
+
+/** A product tile built for fast tills: photo, price, stock and one obvious add target. */
+function ProductTile({ p, qty, category, index, onAdd }: { p: Product; qty: number; category: string; index: number; onAdd: () => void }) {
+  const svc = p.unit === "job";
+  const out = !svc && p.stock <= 0;
+  const low = !svc && !out && p.stock <= p.reorderLevel;
+  const stockText = svc ? "Service" : out ? "Out of stock" : low ? `Only ${p.stock} left` : `${p.stock} in stock`;
+  const dot = svc ? "bg-ink-300" : out ? "bg-rose-500" : low ? "bg-amber-500" : "bg-emerald-500";
+  const stockTextColor = svc ? "text-ink-400" : out ? "text-rose-600" : low ? "text-amber-600" : "text-emerald-600";
+
+  return (
+    <button
+      type="button"
+      disabled={out}
+      onClick={onAdd}
+      aria-label={`Add ${p.name}, ${formatMoney(p.sellingPrice)}${out ? ", out of stock" : ""}`}
+      className={cn(
+        "pos-tile group relative flex h-full flex-col overflow-hidden rounded-2xl bg-white text-left shadow-card ring-1 ring-ink-200 transition-[transform,box-shadow] duration-200",
+        out ? "cursor-not-allowed" : "hover:-translate-y-1 hover:shadow-pop hover:ring-brand-300 active:translate-y-0 active:scale-[.99]",
+        qty > 0 && "ring-2 ring-brand-500",
+      )}
+      style={{ animationDelay: `${Math.min(index, 12) * 18}ms` }}
+    >
+      <div className="relative overflow-hidden bg-gradient-to-br from-ink-50 via-white to-brand-50/70">
+        <div className="h-1 w-full bg-gradient-to-r from-brand-500 via-indigo-500 to-violet-500" />
+        <ProductCover p={p} className="aspect-[5/4] h-auto w-full rounded-none object-cover text-3xl ring-0 transition-transform duration-300 group-hover:scale-[1.04]" />
+        {qty > 0 && <span className="num absolute right-2 top-3 z-10 flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-600 px-2 text-xs font-bold text-white shadow-lg ring-2 ring-white">{qty}</span>}
+        {out && (
+          <div className="pointer-events-none absolute inset-0 grid place-items-center bg-white/55 backdrop-blur-[1px]">
+            <span className="rounded-full bg-ink-900/80 px-3 py-1.5 text-xs font-semibold text-white">Out of stock</span>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col p-3.5">
+        <p className="line-clamp-2 min-h-10 text-[13px] font-semibold leading-5 text-ink-900">{p.name}</p>
+        <p className="mt-0.5 truncate text-[11px] text-ink-400">{category}{p.sku ? ` · ${p.sku}` : ""}</p>
+        <div className="mt-auto flex items-end justify-between gap-2 pt-3">
+          <div className="min-w-0">
+            <p className="num text-[17px] font-bold leading-none tracking-tight text-ink-900">{formatMoney(p.sellingPrice)}</p>
+            <span className={cn("mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium", stockTextColor)}>
+              <span className={cn("size-1.5 shrink-0 rounded-full", dot)} />
+              {stockText}
+            </span>
+          </div>
+          <span className={cn(
+            "grid size-10 shrink-0 place-items-center rounded-xl transition-all duration-200",
+            out ? "bg-ink-100 text-ink-300" : "bg-brand-50 text-brand-600 group-hover:bg-brand-600 group-hover:text-white group-hover:shadow-glow",
+          )}>
+            <LuPlus className="size-5" strokeWidth={2.4} />
+          </span>
+        </div>
+      </div>
+    </button>
   );
 }
 

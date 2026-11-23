@@ -201,6 +201,20 @@ describe("selling", () => {
     assert.equal(list.find((p: any) => p.id === S.p1).stock, 9);
   });
 
+  it("shares a stable digital receipt without sign-in", async () => {
+    const member = await ok("get", `/sales/${S.sale1}/receipt`, { token: S.cashier });
+    assert.match(member.shareToken, /^[A-Za-z0-9_-]{43}$/);
+    const publicView = await ok("get", `/receipts/${member.shareToken}`);
+    assert.equal(publicView.receiptNumber, "OSU-T1-000001");
+    assert.equal(publicView.status, "completed");
+    assert.equal(publicView.items.length, 2);
+    assert.equal(publicView.total, 2069);
+    // Reprints keep the same link, so an old QR code never stops working.
+    assert.equal((await ok("get", `/sales/${S.sale1}/receipt`, { token: S.cashier })).shareToken, member.shareToken);
+    assert.equal((await ok("get", `/receipts/${member.shareToken}`)).shareToken, member.shareToken);
+    await err("not_found", "get", "/receipts/not-a-real-token");
+  });
+
   it("validates payments and stock", async () => {
     const base = { terminalId: S.tillId, lines: [{ productId: S.p2, quantity: 1 }] };
     await err("payment_short", "post", "/checkout", { token: S.cashier, body: { ...base, idempotencyKey: "k-2", payments: [{ method: "momo", amount: 10, phone: "0241234567" }] } });

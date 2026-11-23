@@ -156,8 +156,12 @@ export interface Sale {
 
 /** Payload returned by checkout / sale_receipt RPC. */
 export interface SaleReceipt {
+  saleId?: ID;
   receiptNumber: string;
   createdAt: string;
+  status?: SaleStatus;
+  /** Random, shareable token for the public digital receipt link. */
+  shareToken?: string;
   servedBy: string;
   terminal: string;
   branch: string;

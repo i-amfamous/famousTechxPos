@@ -9,6 +9,7 @@ import { AuthLoader } from "@/features/auth/AuthChrome";
 import { ScannerProvider } from "@/features/scanner/ScannerProvider";
 import { ScannerWindows } from "@/features/scanner/ScanControls";
 import { PhoneScanPage } from "@/features/scanner/PhoneScanPage";
+import { DigitalReceiptPage } from "@/features/receipts/DigitalReceiptPage";
 import { AcceptInvitePage, ForgotPasswordPage, LoginPage, OnboardingPage } from "@/features/auth/AuthPages";
 import { LockScreen } from "@/features/pos/LockScreen";
 import { PosPage } from "@/features/pos/PosPage";
@@ -97,6 +98,7 @@ export default function App() {
                 <Route path="/accept-invite" element={<AcceptInvitePage />} />
                 <Route path="/onboarding" element={<OnboardingPage />} />
                 <Route path="/scan/:session" element={<PhoneScanPage />} />
+                <Route path="/receipt/:token" element={<DigitalReceiptPage />} />
 
                 {/* POS till (full screen; PIN sessions) */}
                 <Route path="/pos/lock" element={<LockScreen />} />

@@ -195,6 +195,11 @@ export const actions = {
     return http.get<SaleReceipt>(`/sales/${saleId}/receipt`);
   },
 
+  /** Public, read-only copy shown when a customer scans the code on a printed receipt. */
+  async digitalReceipt(token: string): Promise<SaleReceipt> {
+    return http.get<SaleReceipt>(`/receipts/${encodeURIComponent(token)}`);
+  },
+
   async holdCart(i: { branchId: string; terminalId: string | null; lines: CartLine[]; note: string }) {
     if (DEMO) return pause();
     await http.post("/held-carts", i);
