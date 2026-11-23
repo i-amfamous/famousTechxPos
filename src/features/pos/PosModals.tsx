@@ -377,13 +377,13 @@ const methodStyle: Record<PaymentMethod, { idle: string; active: string; swatch:
 };
 
 export function PaymentModal({
-  open, onClose, total, lines, customer, cartDiscount, discountReason, discountApprovalId, priceApprovalId, idempotencyKey, onComplete,
+  open, onClose, method, onMethodChange, total, lines, customer, cartDiscount, discountReason, discountApprovalId, priceApprovalId, idempotencyKey, onComplete,
 }: {
-  open: boolean; onClose: () => void; total: number; lines: CartLine[]; customer: Customer | null; cartDiscount: number; discountReason?: string;
-  discountApprovalId?: string | null; priceApprovalId?: string | null; idempotencyKey: string; onComplete: () => void;
+  open: boolean; onClose: () => void; method: PaymentMethod; onMethodChange: (method: PaymentMethod) => void; total: number; lines: CartLine[];
+  customer: Customer | null; cartDiscount: number; discountReason?: string; discountApprovalId?: string | null; priceApprovalId?: string | null;
+  idempotencyKey: string; onComplete: () => void;
 }) {
   const { posUser, terminal, branch, business } = useSession();
-  const [method, setMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState("");
   const [ref, setRef] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -399,11 +399,11 @@ export function PaymentModal({
 
   useEffect(() => {
     if (open) {
-      setTenders([]); setStage("pay"); setMethod("cash"); setAmount(""); setRef("");
+      setTenders([]); setStage("pay"); onMethodChange("cash"); setAmount(""); setRef("");
       setContactEmail(customer?.email ?? ""); setPayerEmail(""); setPaystackBusy(false); setReceipt(null);
       setShowReceipt(false); setPrintRun(0); setError("");
     }
-  }, [open, idempotencyKey]);
+  }, [open, idempotencyKey, onMethodChange]);
 
   const paid = tenders.reduce((s, t) => s + t.amount, 0);
   const remaining = Math.max(0, +(total - paid).toFixed(2));
@@ -478,7 +478,7 @@ export function PaymentModal({
   };
 
   const chooseMethod = (next: PaymentMethod) => {
-    setMethod(next);
+    onMethodChange(next);
     if (next === "momo" && remaining > 0) void startPaystack(remaining);
   };
 
@@ -616,7 +616,7 @@ export function PaymentModal({
                 <Callout tone="info" icon={<LuSmartphone className="size-5" />}>
                   Paystack asks for the customer's mobile money number and email, then confirms the payment. MTN, Telecel and AirtelTigo all work. The receipt prints automatically.
                 </Callout>
-                <Button block size="lg" variant="checkout" icon={<LuSmartphone className="size-5" />} disabled={paystackBusy || remaining <= 0} loading={paystackBusy} onClick={() => void startPaystack(remaining)}>
+                <Button block size="lg" variant="momo" icon={<LuSmartphone className="size-5" />} disabled={paystackBusy || remaining <= 0} loading={paystackBusy} onClick={() => void startPaystack(remaining)}>
                   {paystackBusy ? "Opening Paystack..." : `Pay ${formatMoney(remaining)} with Paystack`}
                 </Button>
               </div>
@@ -657,7 +657,7 @@ export function PaymentModal({
                 <span className="num">{formatMoney(remaining > 0 ? remaining : cashChange)}</span>
               </div>
             </div>
-            <Button size="lg" variant="checkout" className="mt-4" disabled={!covered} onClick={() => void complete()}>
+            <Button size="lg" variant={method} className="mt-4" disabled={!covered} onClick={() => void complete()}>
               Complete sale
             </Button>
           </div>

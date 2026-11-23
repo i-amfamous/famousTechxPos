@@ -1,7 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/format";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger" | "dangerGhost" | "success" | "checkout" | "outline" | "accent" | "onDark";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "dangerGhost" | "success" | "checkout" | "outline" | "accent" | "onDark" | "cash" | "momo" | "card" | "bank";
 type Size = "sm" | "md" | "lg" | "xl";
 
 const variants: Record<Variant, string> = {
@@ -15,6 +15,10 @@ const variants: Record<Variant, string> = {
   onDark: "bg-transparent text-ink-600 hover:bg-ink-100 hover:text-ink-900",
   success: "bg-gradient-to-br from-emerald-600 to-emerald-700 text-white shadow-sm hover:from-emerald-500 hover:to-emerald-600 active:scale-[.98] disabled:from-emerald-300 disabled:to-emerald-300",
   checkout: "bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white shadow-[0_10px_28px_-10px_rgba(5,150,105,.75)] ring-1 ring-inset ring-white/25 hover:from-emerald-400 hover:via-emerald-500 hover:to-teal-500 hover:shadow-[0_14px_32px_-10px_rgba(5,150,105,.85)] active:scale-[.98] disabled:from-emerald-300 disabled:to-emerald-300 disabled:shadow-none",
+  cash: "bg-cash text-white shadow-[0_10px_28px_-10px_rgba(22,163,74,.75)] ring-1 ring-inset ring-white/25 hover:bg-emerald-700 active:scale-[.98] disabled:bg-cash/40 disabled:shadow-none",
+  momo: "bg-momo text-ink-900 shadow-[0_10px_28px_-10px_rgba(255,204,0,.8)] ring-1 ring-inset ring-white/40 hover:bg-[#f0bf00] active:scale-[.98] disabled:bg-momo/40 disabled:text-ink-500 disabled:shadow-none",
+  card: "bg-card text-white shadow-[0_10px_28px_-10px_rgba(37,99,235,.75)] ring-1 ring-inset ring-white/25 hover:bg-blue-700 active:scale-[.98] disabled:bg-card/40 disabled:shadow-none",
+  bank: "bg-bank text-white shadow-[0_10px_28px_-10px_rgba(13,148,136,.75)] ring-1 ring-inset ring-white/25 hover:bg-teal-700 active:scale-[.98] disabled:bg-bank/40 disabled:shadow-none",
 };
 const sizes: Record<Size, string> = {
   sm: "h-9 px-3 text-sm gap-1.5 rounded-lg",

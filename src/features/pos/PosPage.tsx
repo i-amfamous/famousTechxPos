@@ -12,7 +12,7 @@ import { useScan } from "@/features/scanner/ScannerProvider";
 import { ScanButton } from "@/features/scanner/ScanControls";
 import { Logo } from "@/components/layout/AppLayout";
 import { cn, formatMoney } from "@/lib/format";
-import type { CartLine, Customer, Product } from "@/types";
+import type { CartLine, Customer, PaymentMethod, Product } from "@/types";
 import {
   ApprovalModal, type ApprovalRequest, CashMovementModal, cashMoveLabel, CustomerModal, DiscountModal, HeldCartsDrawer, PaymentModal, XReportModal,
 } from "./PosModals";
@@ -29,6 +29,7 @@ export function PosPage() {
   const [lines, setLines] = useState<CartLine[]>([]);
   /** One key for the whole cart: retries of the same sale can never create a second charge. */
   const [checkoutKey, setCheckoutKey] = useState(() => crypto.randomUUID());
+  const [payMethod, setPayMethod] = useState<PaymentMethod>("cash");
   const [cartDiscount, setCartDiscount] = useState(0);
   const [discountMeta, setDiscountMeta] = useState<{ reason: string; approvalId: string | null }>({ reason: "", approvalId: null });
   const [priceApprovalId, setPriceApprovalId] = useState<string | null>(null);
@@ -250,7 +251,7 @@ export function PosPage() {
             Held {heldCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs text-amber-800">{heldCount}</span>}
           </Button>
         </div>
-        <Button size="xl" variant="checkout" block className="mt-3" disabled={!lines.length} onClick={() => setModal("pay")}>
+        <Button size="xl" variant={payMethod} block className="mt-3" disabled={!lines.length} onClick={() => setModal("pay")}>
           <span className="flex w-full items-center justify-between"><span>Charge</span><span className="num">{formatMoney(total)}</span></span>
         </Button>
         <p className="mt-2 hidden text-center text-[11px] text-ink-400 lg:block">F2 search · F8 hold · F9 charge</p>
@@ -386,6 +387,8 @@ export function PosPage() {
       <PaymentModal
         open={modal === "pay"}
         onClose={() => setModal(null)}
+        method={payMethod}
+        onMethodChange={setPayMethod}
         total={total}
         lines={lines}
         customer={customer}
