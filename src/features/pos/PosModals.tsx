@@ -561,7 +561,25 @@ export function PaymentModal({
   return (
     <Modal open={open} onClose={stage === "processing" || paystackBusy ? () => {} : stage === "done" ? onComplete : onClose} size="lg" dismissible={stage !== "processing" && !paystackBusy} centered={stage === "done"} title={stage === "done" ? undefined : "Take payment"}>
       {stage === "done" && receipt ? (
-        <div className={cn("grid w-full justify-items-center gap-6 py-2", showReceipt && "lg:grid-cols-[1fr_auto] lg:items-start")}>
+        showReceipt ? (
+          <div className="flex w-full flex-col items-center gap-3">
+            <div key={printRun} className="receipt-printer" aria-label="Printing receipt">
+              <div className="printer-body print:hidden">
+                <span className="printer-led" />
+                <span className="printer-label">Famous TechX · Thermal printer</span>
+                <span className="printer-head" />
+              </div>
+              <div className="printer-slot print:hidden" />
+              <div className="receipt-output">
+                <Receipt data={receipt} className="print-area" />
+                <div className="receipt-tear print:hidden" aria-hidden />
+              </div>
+            </div>
+            <Button size="lg" icon={<LuPrinter className="size-5" />} onClick={() => { setPrintRun((n) => n + 1); printReceipt(receipt); }} autoFocus>
+              Print
+            </Button>
+          </div>
+        ) : (
           <div className="sale-complete w-full">
             <SaleCompleteMark />
             <h2 className="sale-rise sale-rise-title mt-5 text-2xl font-semibold tracking-tight text-ink-900">Sale complete</h2>
@@ -578,34 +596,13 @@ export function PaymentModal({
               </div>
             )}
             <div className="sale-rise sale-rise-actions mt-6 flex w-full max-w-xs flex-col items-center gap-2">
-              {!showReceipt && (
-                <Button block size="lg" icon={<LuPrinter className="size-5" />} onClick={() => { setShowReceipt(true); setPrintRun((n) => n + 1); }} autoFocus>
-                  Print receipt
-                </Button>
-              )}
-              <Button block size="lg" variant="secondary" onClick={onComplete} autoFocus={!showReceipt}>New sale</Button>
+              <Button block size="lg" icon={<LuPrinter className="size-5" />} onClick={() => { setShowReceipt(true); setPrintRun((n) => n + 1); }} autoFocus>
+                Print receipt
+              </Button>
+              <Button block size="lg" variant="secondary" onClick={onComplete}>New sale</Button>
             </div>
           </div>
-          {showReceipt && (
-            <div className="flex w-full flex-col items-center gap-3">
-              <div key={printRun} className="receipt-printer" aria-label="Printing receipt">
-                <div className="printer-body print:hidden">
-                  <span className="printer-led" />
-                  <span className="printer-label">Famous TechX · Thermal printer</span>
-                  <span className="printer-head" />
-                </div>
-                <div className="printer-slot print:hidden" />
-                <div className="receipt-output">
-                  <Receipt data={receipt} className="print-area" />
-                  <div className="receipt-tear print:hidden" aria-hidden />
-                </div>
-              </div>
-              <Button size="sm" icon={<LuPrinter className="size-4" />} onClick={() => { setPrintRun((n) => n + 1); printReceipt(receipt); }}>
-                Print
-              </Button>
-            </div>
-          )}
-        </div>
+        )
       ) : stage === "error" ? (
         <div className="space-y-4 text-center">
           <Callout tone="danger" title="Checkout didn't go through">{error} Your cart is still here. Retrying is safe - if the sale was saved, the same receipt is returned instead of charging again.</Callout>
