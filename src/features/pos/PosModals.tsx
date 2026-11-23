@@ -352,6 +352,30 @@ const methods: { value: PaymentMethod; label: string; icon: ReactNode }[] = [
   { value: "bank", label: "Bank", icon: <LuLandmark className="size-5" /> },
 ];
 
+/** Real-world payment colours: green cash, yellow MoMo, blue card, teal bank. */
+const methodStyle: Record<PaymentMethod, { idle: string; active: string; swatch: string }> = {
+  cash: {
+    idle: "bg-cash/10 text-cash ring-cash/30 hover:bg-cash/20",
+    active: "bg-cash text-white ring-cash shadow-[0_12px_26px_-12px_rgba(22,163,74,.75)]",
+    swatch: "bg-cash",
+  },
+  momo: {
+    idle: "bg-momo/20 text-[#7a5b00] ring-momo/50 hover:bg-momo/30",
+    active: "bg-momo text-ink-900 ring-[#d9a900] shadow-[0_12px_26px_-12px_rgba(255,204,0,.9)]",
+    swatch: "bg-momo",
+  },
+  card: {
+    idle: "bg-card/10 text-card ring-card/30 hover:bg-card/20",
+    active: "bg-card text-white ring-card shadow-[0_12px_26px_-12px_rgba(37,99,235,.75)]",
+    swatch: "bg-card",
+  },
+  bank: {
+    idle: "bg-bank/10 text-bank ring-bank/30 hover:bg-bank/20",
+    active: "bg-bank text-white ring-bank shadow-[0_12px_26px_-12px_rgba(13,148,136,.75)]",
+    swatch: "bg-bank",
+  },
+};
+
 export function PaymentModal({
   open, onClose, total, lines, customer, cartDiscount, discountReason, discountApprovalId, priceApprovalId, idempotencyKey, onComplete,
 }: {
@@ -535,15 +559,27 @@ export function PaymentModal({
         <div className="grid gap-6 md:grid-cols-[1fr_260px]">
           <div className="space-y-4">
             <div className="grid grid-cols-4 gap-2">
-              {methods.map((m) => (
-                <button
-                  key={m.value}
-                  onClick={() => chooseMethod(m.value)}
-                  className={cn("flex flex-col items-center gap-1 rounded-xl py-3 text-sm font-medium ring-1 transition-colors", method === m.value ? "bg-brand-600 text-white ring-brand-600" : "text-ink-700 ring-ink-200 hover:bg-ink-50")}
-                >
-                  {m.icon}{m.label}
-                </button>
-              ))}
+              {methods.map((m) => {
+                const active = method === m.value;
+                const style = methodStyle[m.value];
+                return (
+                  <button
+                    key={m.value}
+                    onClick={() => chooseMethod(m.value)}
+                    aria-pressed={active}
+                    className={cn(
+                      "relative flex flex-col items-center gap-1.5 overflow-hidden rounded-xl py-3 text-sm font-semibold ring-1 transition-all duration-200 active:scale-[.97]",
+                      active ? style.active : style.idle,
+                    )}
+                  >
+                    <span className={cn("grid size-9 place-items-center rounded-xl transition-colors", active ? "bg-white/20" : "bg-white/70 ring-1 ring-black/5")}>
+                      {m.icon}
+                    </span>
+                    {m.label}
+                    <span className={cn("absolute inset-x-3 bottom-0 h-0.5 rounded-full", active ? "bg-current opacity-50" : style.swatch)} />
+                  </button>
+                );
+              })}
             </div>
             {method === "momo" ? (
               <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800 ring-1 ring-brand-100">
