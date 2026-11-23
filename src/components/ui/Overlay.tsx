@@ -28,17 +28,17 @@ function useAutoFocus(open: boolean) {
 }
 
 export function Modal({
-  open, onClose, title, description, children, footer, size = "md", dismissible = true,
+  open, onClose, title, description, children, footer, size = "md", dismissible = true, centered = false,
 }: {
   open: boolean; onClose: () => void; title?: ReactNode; description?: ReactNode; children?: ReactNode; footer?: ReactNode;
-  size?: "sm" | "md" | "lg" | "xl"; dismissible?: boolean;
+  size?: "sm" | "md" | "lg" | "xl"; dismissible?: boolean; centered?: boolean;
 }) {
   useEscape(open && dismissible, onClose);
   const ref = useAutoFocus(open);
   if (!open) return null;
   const w = { sm: "max-w-sm", md: "max-w-lg", lg: "max-w-2xl", xl: "max-w-4xl" }[size];
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
+    <div className={cn("fixed inset-0 z-50 flex justify-center p-0 sm:p-4", centered ? "items-center" : "items-end sm:items-center")}>
       <div className="ui-overlay absolute inset-0 bg-ink-900/50 backdrop-blur-sm" onClick={dismissible ? onClose : undefined} aria-hidden />
       <div ref={ref} role="dialog" aria-modal="true" className={cn("ui-surface relative flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-white shadow-pop ring-1 ring-ink-900/5 sm:rounded-2xl", w)}>
         {(title || dismissible) && (

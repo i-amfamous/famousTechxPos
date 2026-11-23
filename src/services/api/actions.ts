@@ -170,7 +170,7 @@ export const actions = {
 
   /* ───────── Selling ───────── */
   /** Reserves a Paystack reference for the Inline dialog. Only the public key comes back. */
-  async initializePaystack(i: { amount: number; email?: string; phone?: string }): Promise<{ reference: string; publicKey: string; email: string; amount: number }> {
+  async initializePaystack(i: { amount: number; email?: string; phone?: string; channel?: "momo" | "card" }): Promise<{ reference: string; publicKey: string; email: string; amount: number }> {
     if (DEMO) return { reference: `DEMO-${Date.now()}`, publicKey: "pk_demo", email: i.email || "customer@example.com", amount: i.amount };
     return http.post("/paystack/initialize", i);
   },

@@ -12,6 +12,7 @@ import { exportPrintable, printReceipt, type ExportReport } from "@/lib/export";
 import { DEMO } from "@/lib/http";
 import { openPaystackDialog } from "@/lib/paystack";
 import { detectNetwork, formatPhone, normalizePhone } from "@/lib/momo";
+import { useScan } from "@/features/scanner/ScannerProvider";
 import type { CartLine, Customer, HeldCart, PaymentLine, PaymentMethod, SaleReceipt } from "@/types";
 import { Receipt } from "./Receipt";
 
@@ -387,6 +388,13 @@ const saleConfetti = [
   { x: "64px", y: "92px", tone: "#a78bfa", delay: "0.44s", size: "11px", radius: "3px", r: "18deg" },
 ] as const;
 
+/** A keyboard-wedge reader may send a card number or a token. Keep only the last four characters. */
+function maskCardScan(code: string): string {
+  const raw = code.trim();
+  const digits = raw.replace(/\D/g, "");
+  return digits.length >= 4 ? `Card •••• ${digits.slice(-4)}` : `Card ${raw.slice(-4)}`;
+}
+
 function SaleCompleteMark() {
   return (
     <div className="sale-mark" aria-hidden="true">
@@ -466,24 +474,35 @@ export function PaymentModal({
   };
 
   /**
-   * MoMo now starts in Paystack: reserve a reference on the server, open Inline so the customer
-   * supplies their contact and MoMo number, then verify and complete the sale from the callback.
+   * Reserve a reference on the server, open Inline with the chosen channel, then verify and
+   * complete the sale from the callback. Card scans only keep a masked reference on the receipt.
    */
-  const startPaystack = async (payAmount: number) => {
+  const startPaystack = async (payAmount: number, channel: "momo" | "card" = "momo", scannedCard?: string) => {
     if (!terminal || paystackBusy || !(payAmount > 0)) return;
     setError("");
     setPaystackBusy(true);
     try {
-      const init = await actions.initializePaystack({ amount: payAmount, email: contactEmail.trim() || customer?.email || "", phone: customer?.phone || "" });
+      const init = await actions.initializePaystack({
+        amount: payAmount,
+        email: contactEmail.trim() || customer?.email || "",
+        phone: customer?.phone || "",
+        channel,
+      });
       const finish = (responseReference: string) => {
         const reference = responseReference || init.reference;
-        const phone = normalizePhone(customer?.phone ?? "");
-        const network = detectNetwork(phone);
-        const next: PaymentLine = {
-          method: "momo", amount: init.amount, reference: `Paystack ${reference}`,
-          ...(phone ? { phone } : {}), ...(network !== "Unknown" ? { network } : {}),
+        const next: PaymentLine = channel === "card" ? {
+          method: "card", amount: init.amount,
+          reference: scannedCard || ref || `Paystack ${reference}`,
           paystackReference: reference,
-        };
+        } : (() => {
+          const phone = normalizePhone(customer?.phone ?? "");
+          const network = detectNetwork(phone);
+          return {
+            method: "momo" as const, amount: init.amount, reference: `Paystack ${reference}`,
+            ...(phone ? { phone } : {}), ...(network !== "Unknown" ? { network } : {}),
+            paystackReference: reference,
+          };
+        })();
         const updated = [...tenders, next];
         setPayerEmail(init.email);
         setTenders(updated);
@@ -499,7 +518,7 @@ export function PaymentModal({
         amount: Math.round(init.amount * 100),
         currency: "GHS",
         ref: init.reference,
-        channels: ["mobile_money"],
+        channels: channel === "card" ? ["card"] : ["mobile_money"],
         metadata: { custom_fields: [{ display_name: "Receipt", variable_name: "receipt", value: idempotencyKey }] },
         callback: (response) => finish(String(response?.reference ?? init.reference)),
         onClose: () => setPaystackBusy(false),
@@ -510,6 +529,20 @@ export function PaymentModal({
       setStage("error");
     }
   };
+
+  /**
+   * A USB or Bluetooth card reader types like a keyboard. While this dialog is open its scan
+   * takes over from the product scanner, switches to Card and opens Paystack's card dialog.
+   */
+  useScan((code) => {
+    const raw = code.trim();
+    if (!raw) throw new Error("No card was read. Scan it again.");
+    const masked = maskCardScan(raw);
+    onMethodChange("card");
+    setRef(masked);
+    void startPaystack(remaining, "card", masked);
+    return `${masked}. Paystack is opening.`;
+  }, open && stage === "pay" && !paystackBusy && remaining > 0);
 
   const chooseMethod = (next: PaymentMethod) => {
     onMethodChange(next);
@@ -526,7 +559,7 @@ export function PaymentModal({
   const covered = paid >= total && total >= 0 && (tenders.length > 0 || total === 0);
 
   return (
-    <Modal open={open} onClose={stage === "processing" || paystackBusy ? () => {} : stage === "done" ? onComplete : onClose} size="lg" dismissible={stage !== "processing" && !paystackBusy} title={stage === "done" ? undefined : "Take payment"}>
+    <Modal open={open} onClose={stage === "processing" || paystackBusy ? () => {} : stage === "done" ? onComplete : onClose} size="lg" dismissible={stage !== "processing" && !paystackBusy} centered={stage === "done"} title={stage === "done" ? undefined : "Take payment"}>
       {stage === "done" && receipt ? (
         <div className={cn("grid w-full justify-items-center gap-6 py-2", showReceipt && "lg:grid-cols-[1fr_auto] lg:items-start")}>
           <div className="sale-complete w-full">
@@ -544,13 +577,13 @@ export function PaymentModal({
                 <p className="num text-4xl font-bold text-amber-900">{formatMoney(receipt.change)}</p>
               </div>
             )}
-            <div className="sale-rise sale-rise-actions mt-6 flex w-full max-w-xs flex-col gap-2">
+            <div className="sale-rise sale-rise-actions mt-6 flex w-full max-w-xs flex-col items-center gap-2">
               {!showReceipt && (
-                <Button size="lg" icon={<LuPrinter className="size-5" />} onClick={() => { setShowReceipt(true); setPrintRun((n) => n + 1); }} autoFocus>
+                <Button block size="lg" icon={<LuPrinter className="size-5" />} onClick={() => { setShowReceipt(true); setPrintRun((n) => n + 1); }} autoFocus>
                   Print receipt
                 </Button>
               )}
-              <Button size="lg" variant="secondary" onClick={onComplete} autoFocus={!showReceipt}>New sale</Button>
+              <Button block size="lg" variant="secondary" onClick={onComplete} autoFocus={!showReceipt}>New sale</Button>
             </div>
           </div>
           {showReceipt && (
@@ -615,6 +648,11 @@ export function PaymentModal({
                 );
               })}
             </div>
+            {remaining > 0 && (
+              <p className="text-center text-xs text-ink-500">
+                Card reader ready. Scanning a card switches to Card and opens Paystack.
+              </p>
+            )}
             {method === "momo" ? (
               <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800 ring-1 ring-brand-100">
                 Paystack will ask the customer for <span className="num font-bold">{formatMoney(remaining)}</span>.
@@ -655,10 +693,22 @@ export function PaymentModal({
                 </Button>
               </div>
             )}
-            {(method === "card" || method === "bank") && <Input label="Reference" hint="Optional" value={ref} onChange={(e) => setRef(e.target.value)} />}
-            {method !== "cash" && method !== "momo" && (
-              <Callout tone="info">Recorded manually. Confirm you've seen the payment before adding it - it isn't verified electronically.</Callout>
-            )}
+            {method === "card" ? (
+              <div className="space-y-3 rounded-xl bg-blue-50 px-4 py-3 ring-1 ring-blue-100">
+                <Callout tone="info" icon={<LuCreditCard className="size-5" />}>
+                  Scan the customer's card with the connected reader, or open Paystack to take the card payment. We keep only the last four digits on the receipt.
+                </Callout>
+                <Input label="Card reference" hint="Filled automatically when you scan" value={ref} onChange={(e) => setRef(e.target.value)} />
+                <Button block size="lg" variant="card" icon={<LuCreditCard className="size-5" />} disabled={paystackBusy || remaining <= 0} loading={paystackBusy} onClick={() => void startPaystack(remaining, "card", ref || undefined)}>
+                  {paystackBusy ? "Opening Paystack..." : `Pay ${formatMoney(remaining)} with Paystack`}
+                </Button>
+              </div>
+            ) : method === "bank" ? (
+              <>
+                <Input label="Reference" hint="Optional" value={ref} onChange={(e) => setRef(e.target.value)} />
+                <Callout tone="info">Recorded manually. Confirm you've seen the payment before adding it - it isn't verified electronically.</Callout>
+              </>
+            ) : null}
             {method !== "momo" && (
               <Button block variant="outline" icon={<LuPlus className="size-4" />} disabled={entered <= 0 || (method !== "cash" && entered > remaining) || remaining === 0} onClick={addTender}>
                 Add {formatMoney(entered)} {methodLabel[method]}

@@ -8,7 +8,7 @@
 | API server | `server/` | Node.js, Express, TypeScript, WebSocket |
 | Database | TiDB Cloud | MySQL-compatible, set up by `npm run migrate` |
 | Email | Brevo | REST API for invites and password resets, with SMTP fallback |
-| Payments | Paystack | Ghana Mobile Money through Paystack Inline, verified on the server |
+| Payments | Paystack | Ghana Mobile Money and card payments through Paystack Inline, verified on the server |
 | Live updates | WebSocket | Authenticated change notices, refetched through the scoped API |
 
 The website has two modes:
@@ -86,6 +86,7 @@ Cameras only work on **HTTPS** or `localhost`. To test with a phone on your loca
 ## 5. Payments, receipts and live updates
 
 - **Ghana Mobile Money:** choose MTN MoMo, Telecel Cash or AirtelTigo at checkout. The amount is sent to Paystack in integer pesewas with `GHS` as the currency. Only the public key reaches the browser; the Inline dialog collects the customer's phone number and Paystack confirms the payment before the sale is saved.
+- **Card reader:** a USB or Bluetooth keyboard-wedge card scanner can be used while the payment dialog is open. Scanning a card switches to Card and opens Paystack with the card channel only. The till stores only a masked last-four reference, never the full card number or track data. Cashiers can also open the card dialog manually.
 - **Confirmation:** the Inline callback is followed by a server-side `verify`. A webhook is a backup for payments finished on the phone but not confirmed in the browser. Retries and replays are idempotent, so nobody is charged twice and no duplicate sale is created.
 - **After payment:** the till shows **Sale complete** with print and new-sale options. The animated printer runs only when **Print receipt** is pressed.
 - **Digital receipt:** every receipt has a QR code that opens a read-only receipt page at `/receipt/:token`. The token is random, stored with the sale and valid without sign-in. Reprinting the same sale uses the same token. Treat the link like the paper receipt: anyone holding it can view that receipt.
@@ -124,6 +125,6 @@ server/                    API server - architecture, security model and endpoin
 
 ## 8. Notes and limits
 
-- **Payments:** Mobile Money is verified through Paystack Inline plus a server-side check. Card and bank payments are still recorded manually. Test keys stay on until a real test payment has been confirmed on the server and the webhook has been seen in the logs.
+- **Payments:** Mobile Money and scanned or manually opened card payments are verified through Paystack Inline plus a server-side check. Bank payments are still recorded manually. Test keys stay on until a real test payment has been confirmed on the server and the webhook has been seen in the logs.
 - **Offline:** offline selling is not supported. Checkout needs a connection, and a retry never double-charges.
 - **Tax:** set your tax rate in **Settings → Receipts & tax**, and check current GRA rates yourself.

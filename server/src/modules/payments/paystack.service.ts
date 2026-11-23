@@ -76,12 +76,15 @@ export interface PaystackInlineInit {
   amount: number;
 }
 
+export type PaystackInlineChannel = "momo" | "card";
+
 /**
- * Starts a Paystack Inline transaction. The browser gets only the public key and the reference;
- * the dialog collects the customer's contact and mobile money number. No `mobile_number` is sent
- * here, so Paystack does not fire a request-to-pay before the customer confirms in the dialog.
+ * Starts a Paystack Inline transaction. The browser gets only the public key and the reference.
+ * MoMo lets the dialog collect the customer's number. Card lets Inline handle the card details,
+ * including cards read by the till's keyboard-wedge scanner. No `mobile_number` is sent here,
+ * so Paystack does not fire a request-to-pay before the customer confirms in the dialog.
  */
-export async function initializePaystackInline(input: { amount: number; email?: string | null; phone?: string | null }): Promise<PaystackInlineInit> {
+export async function initializePaystackInline(input: { amount: number; email?: string | null; phone?: string | null; channel?: PaystackInlineChannel }): Promise<PaystackInlineInit> {
   if (!config.paystack.secretKey || !config.paystack.publicKey)
     throw bad("paystack_not_configured", "Payments aren't set up yet. Please try again later.");
 
@@ -96,6 +99,7 @@ export async function initializePaystackInline(input: { amount: number; email?: 
       : `sale-${Date.now()}@famoustexhpos.com`;
 
   const reference = `FTX-${randomUUID()}`;
+  const channel = input.channel === "card" ? "card" : "momo";
   const res = await fetch(`${API}/transaction/initialize`, {
     method: "POST",
     headers: { Authorization: `Bearer ${config.paystack.secretKey}`, "Content-Type": "application/json" },
@@ -104,9 +108,9 @@ export async function initializePaystackInline(input: { amount: number; email?: 
       amount: pesewas,
       currency: "GHS",
       reference,
-      channels: ["mobile_money"],
+      channels: channel === "card" ? ["card"] : ["mobile_money"],
       // Inline calls back the browser and we verify server-side. A redirect URL here would hijack the iframe.
-      metadata: { source: "Famous TechX POS", integration: "inline", ...(phone ? { customer_phone: phone } : {}) },
+      metadata: { source: "Famous TechX POS", integration: "inline", channel, ...(phone ? { customer_phone: phone } : {}) },
     }),
     signal: AbortSignal.timeout(9000),
   });

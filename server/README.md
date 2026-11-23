@@ -124,7 +124,7 @@ All endpoints take and return JSON. Send `Authorization: Bearer <token>` once si
 | Purchasing | `GET/POST /suppliers` · `PATCH /suppliers/:id` · `GET/POST /purchase-orders` · `POST /purchase-orders/:id/{status,receive}` |
 | Money | `GET/POST /expenses` · `POST /expenses/:id/void` · `GET /reports/{dashboard,employees,pnl}` · `GET /reports/employees/:id` |
 | Business | `GET/POST /branches` · `PATCH /branches/:id` · `PATCH /settings` · `GET /notifications` · `POST /notifications/read` |
-| Payments | `POST /paystack/initialize` (reserve a reference for Paystack Inline) · `POST /webhooks/paystack` (`charge.success` backup reconciliation) |
+| Payments | `POST /paystack/initialize` (reserve an Inline reference with `channel: "momo"` or `"card"`) · `POST /webhooks/paystack` (`charge.success` backup reconciliation) |
 | Realtime | `WS /ws/scan?session=<id>&role=till\|phone` · `WS /ws/invalidate` (authenticated change notices) |
 | Health | `GET /health` |
 

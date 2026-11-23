@@ -139,6 +139,17 @@ describe("Paystack mobile money", () => {
     } finally { stub.restore(); }
   });
 
+  it("starts Inline with the card channel for scanned cards", async () => {
+    const stub = stubFetch({ status: true, data: { reference: "FTX-card" } });
+    try {
+      const out = await initializePaystackInline({ amount: 12.5, email: "buyer@example.com", channel: "card" });
+      assert.equal(out.reference, "FTX-card");
+      assert.deepEqual(stub.captured.body?.channels, ["card"]);
+      assert.equal(stub.captured.body?.mobile_number, undefined);
+      assert.equal((stub.captured.body?.metadata as Record<string, string>).channel, "card");
+    } finally { stub.restore(); }
+  });
+
   it("verifies an Inline reference before saving and records the tender as paid", async () => {
     const { db, actor } = await saleFixture();
     const original = globalThis.fetch;
@@ -167,6 +178,22 @@ describe("Paystack mobile money", () => {
       assert.equal(requests[0]?.status, "paid");
       assert.equal(requests[0]?.provider_reference, "FTX-inline");
     } finally { globalThis.fetch = original; off(); await db.close(); }
+  });
+
+  it("verifies a card Inline reference before saving and keeps only a masked card reference", async () => {
+    const { db, actor } = await saleFixture();
+    const original = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify({ data: { status: "success", amount: 1250 } }), { status: 200, headers: { "Content-Type": "application/json" } });
+    try {
+      const receipt = await checkout(db, actor, {
+        ...inlineCheckout("FTX-card-paid"),
+        payments: [{ method: "card", amount: 12.5, reference: "Card •••• 4242", paystackReference: "FTX-card-paid" }],
+      });
+      assert.equal(receipt.payments[0]?.status, "paid");
+      const pays = await db.all("SELECT status, provider_reference FROM payments WHERE sale_id = ?", [receipt.saleId]);
+      assert.equal(pays[0]?.status, "paid");
+      assert.equal(pays[0]?.provider_reference, "Card •••• 4242");
+    } finally { globalThis.fetch = original; await db.close(); }
   });
 
   it("refuses to save a sale when Paystack hasn't confirmed the Inline payment", async () => {

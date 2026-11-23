@@ -25,7 +25,12 @@ export const paystackRoutes: Route[] = [
     change: false,
     run: (c) => {
       requirePerm(c.actor, "pos.sell");
-      return initializePaystackInline({ amount: Number(c.body?.amount), email: c.body?.email, phone: c.body?.phone });
+      return initializePaystackInline({
+        amount: Number(c.body?.amount),
+        email: c.body?.email,
+        phone: c.body?.phone,
+        channel: c.body?.channel === "card" ? "card" : "momo",
+      });
     },
   },
 ];

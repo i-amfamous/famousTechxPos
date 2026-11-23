@@ -49,7 +49,7 @@ function paymentReference(pay: CheckoutInput["payments"][number]): string | null
 async function verifyInlinePayments(p: CheckoutInput): Promise<CheckoutInput> {
   const payments = (p.payments ?? []).map((pay) => ({ ...pay }));
   for (const pay of payments) {
-    if (pay.method !== "momo" || !pay.paystackReference) continue;
+    if ((pay.method !== "momo" && pay.method !== "card") || !pay.paystackReference) continue;
     const result = await verifyPaystackTransaction(pay.paystackReference);
     if (!result.success) throw bad("paystack_not_paid", "The payment isn't confirmed yet. Finish the payment prompt and try again.");
     if (Math.abs(result.pesewas - cents(pay.amount)) > 1)
